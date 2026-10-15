@@ -26,6 +26,7 @@ tempCodeRunnerFile.py
 /processos_filtrados/
 /Google_Imagery/
 /CBERS_Imagery/
+/Google_Imagery_512/
 /shapes/
 
 # Created by https://www.toptal.com/developers/gitignore/api/images,video,venv
@@ -95,6 +96,10 @@ tempCodeRunnerFile.py
 # 3D Images
 *.3dm
 *.max
+
+# json
+*.json
+
 
 ### venv ###
 # Virtualenv

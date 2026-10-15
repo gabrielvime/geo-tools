@@ -81,7 +81,7 @@ def main(source, test=False):
 
             data_frame = gpd.GeoDataFrame(geometry=[polygon], crs=gdf.crs)
 
-            shapefile_name = f'id{row['id']}_{row['processo'].replace('/','-')}'
+            shapefile_name = f'processo_{row['processo'].replace('/','_')}'
             print(f'name: {shapefile_name}')
 
             satellites = ['cbers', 'sentinel2']

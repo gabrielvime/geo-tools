@@ -131,44 +131,48 @@ def window(shape, src, max_size=True, min_max=False, crs="EPSG:4326"):
 
     return window
 
-
-def divide(shape, size=config.RESOLUTION, crs="EPSG:3857"):
-
-    shapes_list = []
-
-    # calculates width and height
-    shape = shape.to_crs("EPSG:3857")
+def divide(shape, crs="EPSG:3857"):
+    shape = shape.to_crs(crs)
+    unified_shape = shape.unary_union
     minx, miny, maxx, maxy = shape.total_bounds
-    width = maxx - minx
-    height = maxy - miny
-
-    # centers
-    cx = (minx + maxx) / 2
-    cy = (miny + maxy) / 2
-
-    start_x = minx - 256
-    end_x= maxx + 256
-    start_y = miny - 256
-    end_y = maxy + 256
-
-    while start_x <= end_x:
-        while start_y <= end_y:
+    
+    pixel_size = 156543.03392804097 / (2 ** config.ZOOM)
+    
+    block_size_m = config.RESOLUTION * pixel_size
+    
+    parts_list = []
+    
+    x = minx
+    while x < maxx:
+        y = miny
+        while y < maxy:
+            x_end = x + block_size_m
+            y_end = y + block_size_m
             
-            tmp_max_x = start_x + size
-            tmp_max_y = start_y + size
-
-            temp_shape = shapely.box(start_x, start_y, tmp_max_x, tmp_max_y)
-            temp_geo = gpd.GeoDataFrame(geometry=[temp_shape], crs="EPSG:3857")
-
-            if temp_geo.intersects(shape)[0]:
-                shapes_list.append(temp_geo)
+            # 1. Caixa temporária da grelha para varrimento
+            grid_box_temp = shapely.box(x, y, x_end, y_end)
             
-            temp_shape=None
-            temp_geo=None
-
-            start_x += size
-            start_y += size
-
-
-    return shapes_list
+            # 2. Intersecção real da propriedade com este bloco
+            intersected = unified_shape.intersection(grid_box_temp)
+            
+            # Se houver intersecção real, centramos a janela de recorte na geometria
+            if not intersected.is_empty:
+                # Calcula o centro exato da porção da propriedade neste bloco
+                centroid = intersected.centroid
+                cx, cy = centroid.x, centroid.y
+                
+                half_size = block_size_m / 2
+                grid_box = shapely.box(cx - half_size, cy - half_size, cx + half_size, cy + half_size)
+                grid_gdf = gpd.GeoDataFrame(geometry=[grid_box], crs=crs)
+                
+                clipped_gdf = gpd.GeoDataFrame(geometry=[intersected], crs=crs)
+                parts_list.append({
+                    "grid_box": grid_gdf, 
+                    "property_part": clipped_gdf
+                })
+                
+            y += block_size_m
+        x += block_size_m
+        
+    return parts_list
     
