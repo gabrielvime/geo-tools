@@ -4,7 +4,7 @@ import rasterio
 from rasterio.features import rasterize
 import numpy as np
 from rasterio.warp import transform_bounds
-import shapely
+from shapely.geometry import box
 
 import config
 
@@ -131,48 +131,26 @@ def window(shape, src, max_size=True, min_max=False, crs="EPSG:4326"):
 
     return window
 
-def divide(shape, crs="EPSG:3857"):
+def divide(shape, crs="EPSG:3857", overlap = config.RESOLUTION * 0.25):
     shape = shape.to_crs(crs)
     unified_shape = shape.unary_union
     minx, miny, maxx, maxy = shape.total_bounds
     
-    pixel_size = 156543.03392804097 / (2 ** config.ZOOM)
-    
-    block_size_m = config.RESOLUTION * pixel_size
-    
-    parts_list = []
-    
-    x = minx
-    while x < maxx:
-        y = miny
-        while y < maxy:
-            x_end = x + block_size_m
-            y_end = y + block_size_m
-            
-            # 1. Caixa temporária da grelha para varrimento
-            grid_box_temp = shapely.box(x, y, x_end, y_end)
-            
-            # 2. Intersecção real da propriedade com este bloco
-            intersected = unified_shape.intersection(grid_box_temp)
-            
-            # Se houver intersecção real, centramos a janela de recorte na geometria
-            if not intersected.is_empty:
-                # Calcula o centro exato da porção da propriedade neste bloco
-                centroid = intersected.centroid
-                cx, cy = centroid.x, centroid.y
-                
-                half_size = block_size_m / 2
-                grid_box = shapely.box(cx - half_size, cy - half_size, cx + half_size, cy + half_size)
-                grid_gdf = gpd.GeoDataFrame(geometry=[grid_box], crs=crs)
-                
-                clipped_gdf = gpd.GeoDataFrame(geometry=[intersected], crs=crs)
-                parts_list.append({
-                    "grid_box": grid_gdf, 
-                    "property_part": clipped_gdf
-                })
-                
-            y += block_size_m
-        x += block_size_m
-        
-    return parts_list
-    
+    passo = config.RESOLUTION - overlap
+
+    if passo < 0:
+        raise ValueError("O overlap não pode ser maior ou igual ao tamanho do quadrado!")
+
+    x_coords = np.arange(minx, maxx, passo)
+    y_coords = np.arange(miny, maxy, passo)
+
+    grids_validos = []
+
+    for x in x_coords:
+        for y in y_coords:
+            quadrado = box(x, y, x + config.RESOLUTION, y + config.RESOLUTION)
+
+            if unified_shape.intersects(quadrado):
+                grids_validos.append(quadrado)
+
+    return grids_validos

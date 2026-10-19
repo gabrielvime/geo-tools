@@ -22,7 +22,7 @@ def getData(gdf, shapefile_name, source):
     os.makedirs(output_dir, exist_ok=True)
     print(f"Pasta criada/verificada: {output_dir}")
 
-    sub_parts = shape_tools.divide(gdf, crs="EPSG:3857")
+    sub_parts = shape_tools.divide(gdf)
     total_parts = len(sub_parts)
     print(f"O polígono foi dividido em {total_parts} partes otimizadas.")
 
@@ -34,7 +34,7 @@ def getData(gdf, shapefile_name, source):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
 
-        exp_minx, exp_miny, exp_maxx, exp_maxy = part["grid_box"].total_bounds
+        exp_minx, exp_miny, exp_maxx, exp_maxy = part.bounds
 
         w_4326, s_4326, e_4326, n_4326 = transform_bounds("EPSG:3857", "EPSG:4326", exp_minx, exp_miny, exp_maxx, exp_maxy)
 
