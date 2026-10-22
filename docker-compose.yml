@@ -1,5 +1,5 @@
 services:
-  geotilesgetter:
+  geotools:
     build: .
     user: "${UID:-1000}:${GID:-1000}" # to not run as root and mess like i did
     volumes:

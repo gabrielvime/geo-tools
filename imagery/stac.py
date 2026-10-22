@@ -4,13 +4,13 @@ from rasterio.features import rasterize
 import numpy as np
 from shapely.geometry import box, shape
 
-import validate, shape_tools, config
+import raster.validate, shape.shape_tools, config
 
 '''
 Get imagery from a shape with optional polygon border overlay
 '''
 
-def getData(gdf, shapefile_name, source, aux_shape=None, getAll=True):
+def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.RESOLUTION, bands=[], verify=True, aux_shape=None, getAll=True):
 
     print(f'loading polygon...')
     
@@ -20,9 +20,9 @@ def getData(gdf, shapefile_name, source, aux_shape=None, getAll=True):
     print(f'connecting to source...')
 
     if source =='cbers':
-        items = config.cbers(bbox)
+        items = config.cbers(bbox=bbox, datetime=timeframe)
     elif source == 'sentinel2':
-        items = config.sentinel2(bbox=bbox)
+        items = config.sentinel2(bbox=bbox, datetime=timeframe)
     
     if not items:
         print(f'no scenes obtained from given parameters')
@@ -44,105 +44,134 @@ def getData(gdf, shapefile_name, source, aux_shape=None, getAll=True):
     
     for item in items:
 
-        if source == 'sentinel2':
-            if "visual" not in item.assets:
-                continue
+        #bands = bands
 
-            asset_href = item.assets["visual"].href
-
-        elif source == 'cbers':
-            
-            print()
-            print(f'processing {item.id}')
-
-            asset_key = next(
-                (k for k in ["visual", "data", "render"] if k in item.assets),
-                list(item.assets.keys())[0],
-            )
-            asset_href = item.assets[asset_key].href       
+        stacked_bands = []
+        
+        window = None
 
         try:
-            with rasterio.open(asset_href) as src:
-                
-                gdf = gdf.to_crs(src.crs)
 
-                print(f'calculating scene bounds...')
-                # get polygon window
-                window = shape_tools.window(gdf, src, max_size=config.MAX_SIZE, crs='EPSG:4326')
+            for band_key in bands:
 
-                # get image
-                print(f'getting image...')
-                image = src.read(window=window, boundless=True, fill_value=0)
-                
-                if not config.MAX_SIZE:
-                    print(f'croping image...')
-                    image = image[:,:config.RESOLUTION, :config.RESOLUTION]
+                if band_key not in item.assets:
+                    raise ValueError(f'band {band_key} not found')
+
+                band_href = item.assets[band_key].href
+
+                with rasterio.open(band_href) as src:
+                    
+                    if window is None:
+                        gdf = gdf.to_crs(src.crs)
+                        scene_crs = src.crs
+                        print(f'calculating scene bounds...')
+                        
+                        window = shape.shape_tools.window(gdf, src, max_size=config.MAX_SIZE, size=size, crs='EPSG:4326')
+                        transform = rasterio.windows.transform(window, src.transform)
+
+                    window = shape.shape_tools.window(gdf, src, max_size=config.MAX_SIZE, size=size, crs='EPSG:4326')
+                    
+                    # get image
+                    print(f'getting band {band_key}...')
+                    band_array = src.read(1,window=window, boundless=True, fill_value=0)
+                    
+                    
+                    stacked_bands.append(band_array)
+                    
+                    #print(f'getting band {band_key}... DONE!', end='', flush=True)
+            
+            image = np.stack(stacked_bands)
+
+            if not config.MAX_SIZE:
+                print(f'croping image...')
+                image = np.ascontiguousarray(image[:, :size, :size])
                 
 
-                # image validations
-                     
+            out_meta = ({
+                "driver": "GTiff",
+                "count": len(bands),
+                "height": image.shape[1],
+                "width": image.shape[2],
+                "transform": transform,
+                "crs": scene_crs,
+                "dtype": image.dtype.name,
+                "nodata": 0
+            })
+            
+            #out_meta.pop("blockxsize", None)
+            #ut_meta.pop("blockysize", None)
+                    
+            
+            # image validations
+            
+            if verify:
                 print(f'checking cloud cover...')
-                #if not validate.cloudFilter(image, cloud_threshold=0.05, contrast_threshold=10.0, blur_threshold=10.0):
-                    #print(f'cloud covered...')
-                    #print(f'skipping...')
-                    #continue
-                
-                print(f'verifing data integrity...')
-                if not validate.dataIntegrity(image, threshold=0.05):
-                    print(f'scene integrity compromissed..')
+                if not raster.validate.cloud_filter(image, cloud_threshold=0.20, shadow_threshold=0.30) and not getAll:
+                    print(f'cloud covered...')
                     print(f'skipping...')
                     continue
 
-                transform = rasterio.windows.transform(window, src.transform)
+                if not raster.validate.contrast_filter(image=image, threshold=0.1) and not getAll:
+                    print('contrast filter')
+                    print('skipping...')
+                    continue
 
-                # draw polygon
-                if config.DRAW_POLYGON:
-                    print(f'drawing polygon...')
-                    
-                    if aux_shape is None:
-                        image = shape_tools.draw(
-                            image, 
-                            shape=gdf, 
-                            transform=transform,
-                            crs=gdf.crs
-                            )
-                        
-                    else:
-                        image = shape_tools.draw(
-                            image, 
-                            shape=aux_shape, 
-                            transform=transform,
-                            crs=gdf.crs
-                            )    
-                    
-                # file saving
-                print(f'saving file...')
-                out_meta = src.meta.copy()
-                out_meta.update({
-                    "height": image.shape[1],
-                    "width": image.shape[2],
-                    "transform": transform,
-                })
+                if not raster.validate.sharpness_filter(image=image, threshold=0.1) and not getAll:
+                    print('sharpness filter')
+                    print('skipping...')
+                    continue
+            
+            print(f'verifing data integrity...')
+            if not raster.validate.dataIntegrity(image, threshold=0.05) and not getAll:
+                print(f'scene integrity compromissed..')
+                print(f'skipping...')
+                continue
 
-                output_filename = config.SOURCES.get(source)[1] + '/' + f"{shapefile_name}_{item.id}.tif"
-                with rasterio.open(output_filename, "w", **out_meta) as dest:
-                    dest.write(image)
 
-                print(f'saved as {output_filename} with scene {item.id}')
-                print()
-                success = True
-
-                if success and getAll == False:
-                    break
-                print()
+            # draw polygon
+            if config.DRAW_POLYGON:
+                print(f'drawing polygon...')
                 
+                if aux_shape is None:
+                    image = shape.shape_tools.draw(
+                        image, 
+                        shape=gdf, 
+                        transform=transform,
+                        crs=gdf.crs
+                        )
+                    
+                else:
+                    image = shape.shape_tools.draw(
+                        image, 
+                        shape=aux_shape, 
+                        transform=transform,
+                        crs=gdf.crs
+                        )    
+                
+            # file saving
+            print(f'saving file...')
+            # print(image)
+            
+
+            output_filename = config.SOURCES.get(source)[1] + '/' + f"{shapefile_name}_{item.id}.tif"
+            with rasterio.open(output_filename, "w", **out_meta) as dest:
+                dest.write(image)
+
+            print(f'saved as {output_filename} with scene {item.id}')
+            print()
+
+            success = True
+
+
+            if success and getAll == False:
+                break
+            print()
+        
                 
         except Exception as e:
             print(f"failed in {item.id}: {e}")
             continue
 
-    
-    print(f'\n done!\n')
 
     if not success:
         print("error: no scene found")

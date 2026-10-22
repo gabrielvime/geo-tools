@@ -4,7 +4,7 @@ import numpy as np
 Validations of data integrity
 '''
 
-def cloudFilter(image, cloud_threshold=0.10, shadow_threshold=0.3, contrast_threshold=15.0, blur_threshold=95.0):
+def cloud_filter(image, cloud_threshold=0.10, shadow_threshold=0.30):
 
     '''
     Calculates cloud and shadow percentages
@@ -13,7 +13,7 @@ def cloudFilter(image, cloud_threshold=0.10, shadow_threshold=0.3, contrast_thre
     
     # float to avoid caculus(ingles ruim) error
     img_float = image.astype(float)
-    pixels_totais = img_float[0].size
+    total_pixel = img_float[0].size
     
     # rgb mean to get bright
     bright = np.mean(img_float, axis=0)
@@ -23,20 +23,44 @@ def cloudFilter(image, cloud_threshold=0.10, shadow_threshold=0.3, contrast_thre
     px_shadow = np.count_nonzero(bright < 10) 
     
     # percentage
-    cloud_pct = (px_cloud / pixels_totais)
-    shadow_pct = (px_shadow / pixels_totais)
+    cloud_pct = (px_cloud / total_pixel)
+    shadow_pct = (px_shadow / total_pixel)
     
     # cloud and shadow filter
-    if cloud_pct > cloud_threshold or shadow_pct > shadow_threshold:        
+    if cloud_pct > cloud_threshold or shadow_pct > shadow_threshold:
+        print(f'cloud: {cloud_pct} / shadow: {shadow_pct}')        
         return False
+    else:
+        return True
+
+   
+def contrast_filter(image, threshold=0.1):
+    
+    # float to avoid caculus(ingles ruim) error
+    img_float = image.astype(float)
+    
+    # rgb mean to get bright
+    bright = np.mean(img_float, axis=0)
 
     # contrast filter
-    contrast = np.std(bright)
+    contrast = np.std(bright)/100
     #print(f'contrsta: {contrast}')
     
-    if contrast < contrast_threshold:
+    if contrast < threshold:
+        print(f'contrast: {contrast}')
         return False
+    else:
+        return True
+
+
+def sharpness_filter(image, threshold=0.1):
+
+    # float to avoid caculus(ingles ruim) error
+    img_float = image.astype(float)
     
+    # rgb mean to get bright
+    bright = np.mean(img_float, axis=0)
+
     # gradient filter
     gy, gx = np.gradient(bright)
     
@@ -44,14 +68,16 @@ def cloudFilter(image, cloud_threshold=0.10, shadow_threshold=0.3, contrast_thre
     gnorm = np.sqrt(gx**2 + gy**2)
     
     # border variance
-    sharpness = np.var(gnorm)
+    sharpness = np.var(gnorm)/100
     #print(f'sharpness: {sharpness}')
     
-    if sharpness < blur_threshold:
+    if sharpness < threshold:
+        print(f'sharpness: {sharpness}')
         return False
     
-    # pass
-    return True
+    else:
+        return True
+
 
 def dataIntegrity(image, threshold=0.10):
     '''
