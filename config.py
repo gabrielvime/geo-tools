@@ -8,7 +8,9 @@ SOURCES = {
     'cbers': ['CBERS-4A FUSED', 'cbers_imagery'], 
     'sentinel2': ['Sentinel-2 L2A (AWS)', 'sentinel2_imagery'],
     'google': ['Google XYZ Tiles', 'google_imagery-grids'],
-    'bing': ['Bing STAC', 'bing_imagery']}
+    'bing': ['Bing STAC', 'bing_imagery'],
+    'landsat': ['Landsat 8/9', 'landsat_imagery']
+    }
 """'source':['Source Name','source_path']"""
 
 
@@ -34,8 +36,8 @@ def cbers(bbox, datetime=DATETIME):
     catalog = Client.open("https://data.inpe.br/bdc/stac/v1")
 
     search = catalog.search(
-        #collections=["CB4A-WPM-L4-DN-1"],   # collection
-        collections=['CB4A-WPM-PCA-FUSED-1'],
+        collections=["CB4A-WPM-L4-DN-1"],   # collection
+       # collections=['CB4A-WPM-PCA-FUSED-1'],
         bbox=bbox,                              # bounding box
         datetime=datetime)                      # time frame
 
@@ -49,6 +51,20 @@ def sentinel2(bbox, datetime=DATETIME):
 
     search = catalog.search(
     collections=["sentinel-2-c1-l2a"],
+    bbox=bbox,
+    datetime=datetime,
+    query={"eo:cloud_cover": {"lt": 10}}  # cloud filter
+    )
+
+    return list(search.items())
+
+
+def landsdat(bbox, datetime=DATETIME):
+
+    catalog = Client.open("https://data.inpe.br/bdc/stac/v1")  
+
+    search = catalog.search(
+    collections=["landsat-2"],
     bbox=bbox,
     datetime=datetime,
     query={"eo:cloud_cover": {"lt": 10}}  # cloud filter

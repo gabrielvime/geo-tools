@@ -7,8 +7,7 @@ Spectral Mixture Analysis
 import numpy as np
 from scipy.optimize import nnls
 
-# 1. Definir os 4 Endmembers Globais (Azul, Verde, Vermelho, NIR, SWIR1, SWIR2)
-# Valores hipotéticos de refletância (L2A) multiplicados por 10000
+# 
 endmembers = np.array([
     [ 200,  400,  300, 3500, 1500,  600], # PV (Floresta Verde)
     [ 800, 1200, 1500, 2200, 3500, 2500], # NPV (Madeira Seca/Palha)

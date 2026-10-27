@@ -10,7 +10,7 @@ import raster.validate, shape.shape_tools, config
 Get imagery from a shape with optional polygon border overlay
 '''
 
-def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.RESOLUTION, bands=[], verify=True, aux_shape=None, getAll=True):
+def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.RESOLUTION, assets=[], verify=True, aux_shape=None, getAll=True):
 
     print(f'loading polygon...')
     
@@ -23,6 +23,8 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
         items = config.cbers(bbox=bbox, datetime=timeframe)
     elif source == 'sentinel2':
         items = config.sentinel2(bbox=bbox, datetime=timeframe)
+    elif source == 'landsat':
+        items = config.landsdat(bbox=bbox, datetime=timeframe)
     
     if not items:
         print(f'no scenes obtained from given parameters')
@@ -44,15 +46,13 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
     
     for item in items:
 
-        #bands = bands
-
         stacked_bands = []
         
         window = None
 
         try:
 
-            for band_key in bands:
+            for band_key in assets:
 
                 if band_key not in item.assets:
                     raise ValueError(f'band {band_key} not found')
@@ -89,7 +89,7 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
 
             out_meta = ({
                 "driver": "GTiff",
-                "count": len(bands),
+                "count": len(assets),
                 "height": image.shape[1],
                 "width": image.shape[2],
                 "transform": transform,
@@ -150,15 +150,19 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
                 
             # file saving
             print(f'saving file...')
-            # print(image)
+            print(item.datetime)
+
+
+
+            return (image, out_meta, item.datetime)
             
 
-            output_filename = config.SOURCES.get(source)[1] + '/' + f"{shapefile_name}_{item.id}.tif"
-            with rasterio.open(output_filename, "w", **out_meta) as dest:
-                dest.write(image)
+            # output_filename = config.SOURCES.get(source)[1] + '/' + f"{shapefile_name}_{item.id}.tif"
+            # with rasterio.open(output_filename, "w", **out_meta) as dest:
+            #     dest.write(image)
 
-            print(f'saved as {output_filename} with scene {item.id}')
-            print()
+            # print(f'saved as {output_filename} with scene {item.id}')
+            # print()
 
             success = True
 

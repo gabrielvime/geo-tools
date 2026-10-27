@@ -1,3 +1,5 @@
+import numpy as np
+
 # Inverse Normalized Difference Vegetation Index
 def indvi(nir, red):
     denom = nir + red
@@ -8,23 +10,28 @@ def gndvi(green, nir):
     denom = nir + green
     return np.where(denom == 0, 0, (nir - green) / denom)
 
-# Ferric Iron Index
-def fii(red, green):
-    return np.where(blue == 0, 0, red / green)  
-
-# Iron Oxide Ratio
-def ior(red, blue):
-    return np.where(blue == 0, 0, red / blue) 
-
-# Green-Blue Ratio (errous Iron Proxy)
-def gbp(green, blue):
-    return np.where(blue == 0, 0, green / blue)  
-
 # Normalized Difference Turbidity Index 
 def ndti(red, green):
     denom = red + green
     return np.where(denom == 0, 0, (red - green) / denom) 
 
-# Canopy Structure Evaluation
-def cse(nir, green):
-    return np.where(blue == 0, 0, nir / green)  
+
+# Modified Normalized Difference Water Index 
+def mndwi(green, swir1):
+    denom = green + swir1
+    return np.where(denom == 0, 0, (green - swir1) / denom)
+
+# Modified Bare Soil Index
+def mbi(swir1, swir2, nir, factor):
+    denom = swir1 + swir2 + nir
+    return np.where(denom == 0, 0, ( (swir1 - swir2 - swir2) / denom ) + factor)
+
+# Normalized Difference Red Edge Index 
+def ndre(nir, red_edge):
+    denom = nir + red_edge
+    return np.where(denom == 0, 0, (nir - red_edge) / denom)
+
+
+# Land Surface Temperature (Landsat 8)
+def lst(dn:np.float32) -> np.float32:
+    return (dn * 0.00341802) + 149
