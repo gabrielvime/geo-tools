@@ -121,7 +121,7 @@ def main(source, test=False):
             
             fused_meta = cbers_pan_meta
             fused_meta.update({
-                "count": 4,
+                "count": min(fused_cbers.shape),
                 "height": fused_image.shape[1],
                 "width": fused_image.shape[2],
                 "dtype": fused_image.dtype.name,
@@ -135,8 +135,13 @@ def main(source, test=False):
                 dest.write(red, 1)
                 dest.write(green, 2)
                 dest.write(blue, 3)
-                
+                dest.write(indvi, 4)
+                dest.write(gndvi, 5)
+                dest.write(ndti, 6)
 
+                bands_names = ['red', 'green', 'blue', 'INDVI', 'GNDVI', 'NDTI']
+                for idx, name in enumerate(bands_names, start=1):
+                    dest.set_band_description(idx, name)
 
 
             # # SEARCH FOR SENTINEL IMAGERY IN DATE FRAME
