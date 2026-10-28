@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.ndimage import zoom
 
-def pansharpen(ms_img, pan_img, ratio, sigma_intensity=15.0, sigma_spatial=None):
+def nndiffuse(ms_img, pan_img, ratio, sigma_intensity=15.0, sigma_spatial=None):
     """
     Nearest-Neighbor Diffusion-Based Pan-Sharpening (NNDiffuse) in NumPy.
     
