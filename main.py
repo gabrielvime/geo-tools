@@ -33,7 +33,7 @@ def main(source, test=False):
     # list shapes
     shapes_list = os.listdir(config.SHAPE_PATH)
 
-    save_dir = '/home/vime-siaai/projects/dataset/PA/CBERS'
+    save_dir = './PA/CBERS'
 
 
     for geometry in shapes_list:
@@ -67,7 +67,7 @@ def main(source, test=False):
             # CSV FILE HEADERS
             headers = list(csv_metadata.keys())
 
-            print(csv_metadata)
+            print(headers)
 
             data_frame = gpd.GeoDataFrame(geometry=[polygon], crs=gdf.crs)
 
@@ -81,7 +81,7 @@ def main(source, test=False):
             output_dir.mkdir(parents=True, exist_ok=True)
 
             ## get cbers imagery
-            cbers_imagery, cbers_meta, cbers_outmeta = stac.getData(
+            cbers_imagery, cbers_meta, _ = stac.getData(
                 gdf=data_frame, 
                 shapefile_name=shapefile_name, 
                 source='cbers', 
@@ -93,14 +93,10 @@ def main(source, test=False):
                 getAll=False
                 )
 
-            csv_metadata['DATA'] = cbers_outmeta['DATE']
-            # csv_metadata['NOME'] = cbers_outmeta['NAME']
-            csv_metadata['TAMANHO'] = cbers_outmeta['SIZE']
-            print(f'CBERS IMAGERY GOT')
 
             # exit()
 
-            cbers_pan, cbers_pan_meta, _ = stac.getData(
+            cbers_pan, cbers_pan_meta, cbers_outmeta = stac.getData(
                 gdf=data_frame, 
                 shapefile_name=shapefile_name + '_PAN', 
                 source='cbers', 
@@ -114,6 +110,10 @@ def main(source, test=False):
 
             print(f'CBERS PAN got')
 
+            csv_metadata['DATA'] = cbers_outmeta['DATE']
+            # csv_metadata['NOME'] = cbers_outmeta['NAME']
+            csv_metadata['TAMANHO'] = cbers_outmeta['SIZE']
+            print(f'CBERS IMAGERY GOT')
             # # NND Pansharpenning
 
             
@@ -153,7 +153,7 @@ def main(source, test=False):
             ndwi = indexes.ndwi(green=green, nir=nir )
 
             print('stacking...')
-            fused_cbers = np.stack([red, green, blue, nir, indvi, gndvi, ndti])
+            fused_cbers = np.stack([red, green, blue, nir, indvi, gndvi, ndti, ndwi])
 
 
             csv_metadata['PANSHARPENING'] = fusion
@@ -168,14 +168,17 @@ def main(source, test=False):
             })
  
             
-            fused_name = f'{source}_{row['id']}_{fusion}.tiff'
+            fused_name = f'{source}_{row['id']}_{csv_metadata['PROCESSO'].replace('/', '-')}_{str(csv_metadata['DATA'])}_{fusion}.tiff'
             csv_metadata['NOME'] = fused_name
+
+            print(csv_metadata)
 
             print('\n wiriting csv file')
             # WRITES DATA TO CSV
-            with open(save_dir + '/metadata.csv', 'w', encoding='utf-8', newline='') as csv_file:
+            with open(save_dir + '/metadata.csv', mode='w', encoding='utf-8', newline='') as csv_file:
                 csv_writer = csv.DictWriter(csv_file, fieldnames=headers)
-                csv_writer.writerows(csv_metadata)
+                csv_writer.writeheader()
+                csv_writer.writerow(csv_metadata)
 
             print('\nsaving geotiff\n')
             # SAVE GEOTIFF FILE
