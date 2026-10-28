@@ -50,6 +50,12 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
         
         window = None
 
+        metadata = {
+                    'DATE': item.datetime.date(), 
+                    'NAME': f'{item.id}',
+                    'SIZE': size
+                    }
+
         try:
 
             for band_key in assets:
@@ -154,7 +160,7 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
 
 
 
-            return (image, out_meta, item.datetime)
+            return (image, out_meta, metadata)
             
 
             # output_filename = config.SOURCES.get(source)[1] + '/' + f"{shapefile_name}_{item.id}.tif"

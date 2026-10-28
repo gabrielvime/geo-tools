@@ -1,6 +1,9 @@
 #import stac, shape_tools, config, web_tiles
-import imagery.stac, shape.shape_tools, raster.nnd_pansharpening, config
-from raster import indexes
+import config
+from shape import shape_tools
+from raster import indexes, pansharpening
+from imagery import stac
+
 import geopandas as gpd
 import os
 import numpy as np
@@ -10,6 +13,7 @@ from PIL import Image
 import rasterio
 from datetime import date, timedelta, datetime
 from scipy import ndimage
+import csv
 
 def main(source, test=False):
 
@@ -29,24 +33,41 @@ def main(source, test=False):
     # list shapes
     shapes_list = os.listdir(config.SHAPE_PATH)
 
-    
-    # step 2 verirfy if there is a valid sentinel 2 imagery fpr the same cbers time window
-    # step 3 do the same for landsat
-    # step 4 correct spacial desalign (AROSICS)
-    # step 5 calculate spctral indexes and stack in new geotiff
-    # step 6 save in the format ID_REF-DATE_POS/NEG
-    # step 7 save in table
+    save_dir = '/home/vime-siaai/projects/dataset/PA/CBERS'
+
 
     for geometry in shapes_list:
 
-        # get geometry
-        gdf = shape.shape_tools.gdf(config.SHAPE_PATH + '/' + geometry)     
+        # get geoDATAFRAME
+        gdf = shape_tools.gdf(config.SHAPE_PATH + '/' + geometry)     
 
         # iterate over geometries
         for idx, row in gdf.iterrows():
             print(f'\n {idx} - id: {row['id']} - processo: {row['processo']} \n')
 
             polygon = row['geometry'].envelope
+
+            csv_metadata = {
+                'NOME': None,
+                'ID': row['id'], 
+                'PROCESSO': row['processo'], 
+                'DATA': None, 
+                'FASE': row['fase'], 
+                'SUBSTANCIA': row['substancia'], 
+                'UF': row['uf'], 
+                'BIOMA': row['biomas'], 
+                'USO': row['uso'],
+                'PARTE': None,
+                'SATELITE': source,
+                'PANSHARPENING': None,
+                'ASSETS': None,
+                'TAMANHO': None
+            }
+            
+            # CSV FILE HEADERS
+            headers = list(csv_metadata.keys())
+
+            print(csv_metadata)
 
             data_frame = gpd.GeoDataFrame(geometry=[polygon], crs=gdf.crs)
 
@@ -56,32 +77,35 @@ def main(source, test=False):
         
             # create directories
     
-            output_dir = Path(config.SOURCES.get('cbers')[1])
+            output_dir = Path(config.SOURCES.get(source)[1])
             output_dir.mkdir(parents=True, exist_ok=True)
 
             ## get cbers imagery
-            cbers_imagery, cbers_meta, date_frame = imagery.stac.getData(
+            cbers_imagery, cbers_meta, cbers_outmeta = stac.getData(
                 gdf=data_frame, 
                 shapefile_name=shapefile_name, 
                 source='cbers', 
                 timeframe=config.DATETIME, 
-                size=255, 
+                size=128, 
                 assets=['BAND1', 'BAND2', 'BAND3', 'BAND4'], 
                 verify=True, 
                 aux_shape=None, 
                 getAll=False
                 )
 
+            csv_metadata['DATA'] = cbers_outmeta['DATE']
+            # csv_metadata['NOME'] = cbers_outmeta['NAME']
+            csv_metadata['TAMANHO'] = cbers_outmeta['SIZE']
             print(f'CBERS IMAGERY GOT')
 
             # exit()
 
-            cbers_pan, cbers_pan_meta, _ = imagery.stac.getData(
+            cbers_pan, cbers_pan_meta, _ = stac.getData(
                 gdf=data_frame, 
                 shapefile_name=shapefile_name + '_PAN', 
                 source='cbers', 
                 timeframe=config.DATETIME, 
-                size=1020, 
+                size=512, 
                 assets=['BAND0'], 
                 verify=False, 
                 aux_shape=None, 
@@ -93,6 +117,8 @@ def main(source, test=False):
             # # NND Pansharpenning
 
             
+            fusion = 'nnd'
+            print(f'\n starting {fusion} pansharpening\n')
             low_res_img = np.transpose(cbers_imagery, (1,2,0))
 
             
@@ -100,24 +126,37 @@ def main(source, test=False):
             pan_img = np.ascontiguousarray(cbers_pan, dtype=np.float32)[0, :, :]
             
             
-            fused_image = raster.nnd_pansharpening.pansharpen(
+            fused_image = pansharpening.nndiffuse(
                 ms_img=low_res_img,
                 pan_img=pan_img,
                 ratio=4
                 )
             
+            print('image fused')
             fused_image = np.transpose(fused_image, (2, 0, 1))
-            fused_image = np.ascontiguousarray(fused_image, dtype=np.int16)
+            fused_image = np.ascontiguousarray(fused_image, dtype=np.float32)
 
-            red = fused_image[2]
-            green = fused_image[1]
+            cbers_assets = ['red', 'green', 'blue', 'nir', 'indvi', 'gndvi', 'ndti', 'ndwi']
+
+            csv_metadata['ASSETS'] = cbers_assets
+
+            print('separating bands...')
+            # BANDS
             blue = fused_image[0]
+            green = fused_image[1]
+            red = fused_image[2]
             nir = fused_image[3]
+            print('cauculating indexes...')
             indvi = indexes.indvi(nir=nir, red=red)
             gndvi = indexes.gndvi(green=green, nir=nir)
             ndti = indexes.ndti(red=red, green=green)
+            ndwi = indexes.ndwi(green=green, nir=nir )
 
+            print('stacking...')
             fused_cbers = np.stack([red, green, blue, nir, indvi, gndvi, ndti])
+
+
+            csv_metadata['PANSHARPENING'] = fusion
             
             fused_meta = cbers_pan_meta
             fused_meta.update({
@@ -127,130 +166,47 @@ def main(source, test=False):
                 "dtype": fused_image.dtype.name,
                 "nodata": 0
             })
+ 
+            
+            fused_name = f'{source}_{row['id']}_{fusion}.tiff'
+            csv_metadata['NOME'] = fused_name
 
-            
-            
-            fused_name = 'ID_IMAGE_DATE_CBERS-4A-L4_FUSED.tiff'
-            with rasterio.open(fused_name, "w", **fused_meta) as dest:
+            print('\n wiriting csv file')
+            # WRITES DATA TO CSV
+            with open(save_dir + '/metadata.csv', 'w', encoding='utf-8', newline='') as csv_file:
+                csv_writer = csv.DictWriter(csv_file, fieldnames=headers)
+                csv_writer.writerows(csv_metadata)
+
+            print('\nsaving geotiff\n')
+            # SAVE GEOTIFF FILE
+            with rasterio.open(save_dir + '/UNCLASSIFIED/' + fused_name, "w", **fused_meta) as dest:
                 dest.write(red, 1)
+                dest.set_band_description(1, 'red')
+                
                 dest.write(green, 2)
+                dest.set_band_description(2, 'green')
+
                 dest.write(blue, 3)
-                dest.write(indvi, 4)
-                dest.write(gndvi, 5)
-                dest.write(ndti, 6)
+                dest.set_band_description(3, 'blue')
 
-                bands_names = ['red', 'green', 'blue', 'INDVI', 'GNDVI', 'NDTI']
-                for idx, name in enumerate(bands_names, start=1):
-                    dest.set_band_description(idx, name)
+                dest.write(nir, 4)
+                dest.set_band_description(4, 'nir')
 
+                dest.write(indvi, 5)
+                dest.set_band_description(5, 'indvi')
 
-            # # SEARCH FOR SENTINEL IMAGERY IN DATE FRAME
+                dest.write(gndvi, 6)
+                dest.set_band_description(6, 'gndvi')
 
-            date_frame = date_frame.date()
+                dest.write(ndti, 7)
+                dest.set_band_description(7, 'ndti')
 
-            # date_str = str(date_frame).split(' ')[0]
-            # date_frame = datetime.strptime(date_str, "%Y%m%d").date()
-            date_upper = date_frame + timedelta(days=10)
-            date_lower = date_frame - timedelta(days=10)
-            
-            date_frame = str(date_lower) + '/' + str(date_upper)
+                dest.write(ndwi, 8)
+                dest.set_band_description(8, 'ndwi')
 
-            print(f'\ndate frame: {date_frame}\n')
+            print('ALL DONE')
 
-            
-            # # SENTINEL 2 10m BANDS
-
-            output_dir = Path(config.SOURCES.get('sentinel2')[1])
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            sentinel_imagery10, sentinel10_meta,_ = imagery.stac.getData(
-                gdf=data_frame, 
-                shapefile_name=shapefile_name, 
-                source='sentinel2', 
-                timeframe=date_frame, 
-                size=204, 
-                assets=['blue', 'green', 'red', 'nir'],
-                verify=False,
-                aux_shape=None, 
-                getAll=False
-                )
-
-            # SENTINEL 2 20m BANDS
-
-            output_dir = Path(config.SOURCES.get('sentinel2')[1])
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            shapefile_name = 'sentinel-2_20m'
-            sentinel_imagery20, _, _ = imagery.stac.getData(
-                gdf=data_frame, 
-                shapefile_name=shapefile_name, 
-                source='sentinel2', 
-                timeframe=date_frame, 
-                size=102, 
-                assets=['rededge1', 'rededge2', 'rededge3', 'swir16', 'swir22'],
-                verify=False,
-                aux_shape=None, 
-                getAll=False
-                )
-
-            
-            resampling_factors = (1,2,2)
-
-            resampled_sentinel20 = ndimage.zoom(sentinel_imagery20, zoom=resampling_factors, order=1)
-
-            print(f' sentinel shape 10: {sentinel_imagery10.shape}')
-            print(f' sentinel shape 20: {resampled_sentinel20.shape}')
-
-            sentinel_imagery = np.concatenate([sentinel_imagery10, resampled_sentinel20], axis=0)
-
-
-            sentinel_meta = sentinel10_meta
-            sentinel_meta.update({
-                "count": min(sentinel_imagery.shape),
-                "height": sentinel_imagery.shape[1],
-                "width": sentinel_imagery.shape[2],
-                "dtype": sentinel_imagery.dtype.name,
-                "nodata": 0
-            })
-
-            
-            
-            sentinel_name = 'SENTINEL2-RESAMPLED-INDEXES.tiff'
-            with rasterio.open(sentinel_name, "w", **sentinel_meta) as dest:
-                dest.write(sentinel_imagery)
-
-
-
-            # Landsat 8 Thermal
-
-            output_dir = Path(config.SOURCES.get('sentinel2')[1])
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            shapefile_name = 'landsat_lst'
-            lst_imagery, meta, _ = imagery.stac.getData(
-                gdf=data_frame, 
-                shapefile_name=shapefile_name, 
-                source='landsat', 
-                timeframe=date_frame, 
-                size=68, 
-                assets=['lwir11'],
-                verify=False,
-                aux_shape=None, 
-                getAll=False
-                )
-
-            # convert to float 32
-            lst_imagery = lst_imagery.astype(np.float32)
-            
-            # calculate lst
-            lst_imagery = indexes.lst(lst_imagery)
-
-            # convert again to int16
-            lst_imagery = lst_imagery.astype(np.int16)
-            
-            
-            with rasterio.open('landsat_LST_scene', 'w', **meta) as dest:
-                dest.write(lst_imagery)
+           
 
 
 
