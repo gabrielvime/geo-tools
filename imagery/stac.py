@@ -3,8 +3,10 @@ import rasterio
 from rasterio.features import rasterize
 import numpy as np
 from shapely.geometry import box, shape
+import pandas as pd
 
 import raster.validate, shape.shape_tools, config
+from raster import interpolate
 
 '''
 Get imagery from a shape with optional polygon border overlay
@@ -78,10 +80,28 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
                     window = shape.shape_tools.window(gdf, src, max_size=config.MAX_SIZE, size=size, crs='EPSG:4326')
                     
                     # get image
+                    # we fill missing values with numpy nan
                     print(f'getting band {band_key}...')
-                    band_array = src.read(1,window=window, boundless=True, fill_value=0)
+                    band_array = src.read(1,window=window, boundless=True, fill_value=-999)
+
+                    print(f'-999 VALUES BEFORE: {np.count_nonzero(band_array == -999)}')
                     
+                    # convert to np.float32
+                    band_array = band_array.astype(np.float32)
+
+                    # fill -999 no_data values with np.nan
+                    band_array = np.where(band_array == -999, np.nan, band_array)
+                    if src.nodata is not None:
+                        band_array[band_array == src.nodata] = np.nan
                     
+                    print(f'NAN VALUES BEFORE: {np.count_nonzero(np.isnan(band_array))}')
+
+                    if np.isnan(band_array).any():
+                        print(f'interpolating...')
+                        band_array = interpolate.fmm(band_array, grid=5)
+
+                    print(f'NAN VALUES: {np.count_nonzero(np.isnan(band_array))}')
+
                     stacked_bands.append(band_array)
                     
                     #print(f'getting band {band_key}... DONE!', end='', flush=True)

@@ -1,7 +1,7 @@
 #import stac, shape_tools, config, web_tiles
 import config
 from shape import shape_tools
-from raster import indexes, pansharpening
+from raster import indexes, pansharpening, normalize
 from imagery import stac
 
 import geopandas as gpd
@@ -116,6 +116,17 @@ def main(source, test=False):
             print(f'CBERS IMAGERY GOT')
             # # NND Pansharpenning
 
+
+            
+
+
+            print(f'separate PAN band...')
+
+            # cbers_pan = cbers_imagery[0]
+
+            ## delete the pan band from the original stack
+            # cbers_imagery = np.delete[cbers_imagery, 0]
+
             
             fusion = 'nnd'
             print(f'\n starting {fusion} pansharpening\n')
@@ -132,11 +143,11 @@ def main(source, test=False):
                 ratio=4
                 )
             
-            print('image fused')
+            print('image fused!')
             fused_image = np.transpose(fused_image, (2, 0, 1))
             fused_image = np.ascontiguousarray(fused_image, dtype=np.float32)
 
-            cbers_assets = ['red', 'green', 'blue', 'nir', 'indvi', 'gndvi', 'ndti', 'ndwi']
+            cbers_assets = ['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']
 
             csv_metadata['ASSETS'] = cbers_assets
 
@@ -147,14 +158,29 @@ def main(source, test=False):
             red = fused_image[2]
             nir = fused_image[3]
             print('cauculating indexes...')
-            indvi = indexes.indvi(nir=nir, red=red)
-            gndvi = indexes.gndvi(green=green, nir=nir)
-            ndti = indexes.ndti(red=red, green=green)
-            ndwi = indexes.ndwi(green=green, nir=nir )
+            ndvi = indexes.ndvi(nir=nir, red=red)
+            ndwi = indexes.ndwi(green=green, nir=nir)
+
+            print(f'normalizing...')
+            nomalized_red = normalize.winsorization_min_max(band=red)
+            nomalized_green = normalize.winsorization_min_max(band=green)
+            nomalized_blue = normalize.winsorization_min_max(band=blue)
+            nomalized_nir = normalize.winsorization_min_max(band=nir)
+            nomalized_ndvi = normalize.winsorization_min_max(band=ndvi)
+            nomalized_ndwi = normalize.winsorization_min_max(band=ndwi)
+
 
             print('stacking...')
-            fused_cbers = np.stack([red, green, blue, nir, indvi, gndvi, ndti, ndwi])
+            fused_cbers = np.stack([
+                nomalized_red, 
+                nomalized_green, 
+                nomalized_blue, 
+                nomalized_nir, 
+                nomalized_ndvi, 
+                nomalized_ndwi
+                ])
 
+            print(f'NAN VALUES: {np.count_nonzero(np.isnan(fused_cbers))}')
 
             csv_metadata['PANSHARPENING'] = fusion
             
@@ -163,12 +189,12 @@ def main(source, test=False):
                 "count": min(fused_cbers.shape),
                 "height": fused_image.shape[1],
                 "width": fused_image.shape[2],
-                "dtype": fused_image.dtype.name,
-                "nodata": 0
+                "dtype": np.float32,
+                "nodata": np.nan
             })
  
             
-            fused_name = f'{source}_{row['id']}_{csv_metadata['PROCESSO'].replace('/', '-')}_{str(csv_metadata['DATA'])}_{fusion}.tiff'
+            fused_name = f'{source}_{row['id']}_{csv_metadata['PROCESSO'].replace('/', '-')}_{str(csv_metadata['DATA'])}_{fusion}_normalized.tiff'
             csv_metadata['NOME'] = fused_name
 
             print(csv_metadata)
@@ -180,32 +206,26 @@ def main(source, test=False):
                 csv_writer.writeheader()
                 csv_writer.writerow(csv_metadata)
 
-            print('\nsaving geotiff\n')
+            print(f'\nsaving geotiff as {fused_name}\n')
             # SAVE GEOTIFF FILE
             with rasterio.open(save_dir + '/UNCLASSIFIED/' + fused_name, "w", **fused_meta) as dest:
-                dest.write(red, 1)
+                dest.write(nomalized_red, 1)
                 dest.set_band_description(1, 'red')
                 
-                dest.write(green, 2)
+                dest.write(nomalized_green, 2)
                 dest.set_band_description(2, 'green')
 
-                dest.write(blue, 3)
+                dest.write(nomalized_blue, 3)
                 dest.set_band_description(3, 'blue')
 
-                dest.write(nir, 4)
+                dest.write(nomalized_nir, 4)
                 dest.set_band_description(4, 'nir')
 
-                dest.write(indvi, 5)
-                dest.set_band_description(5, 'indvi')
+                dest.write(nomalized_ndvi, 5)
+                dest.set_band_description(5, 'ndvi')
 
-                dest.write(gndvi, 6)
-                dest.set_band_description(6, 'gndvi')
-
-                dest.write(ndti, 7)
-                dest.set_band_description(7, 'ndti')
-
-                dest.write(ndwi, 8)
-                dest.set_band_description(8, 'ndwi')
+                dest.write(nomalized_ndwi, 6)
+                dest.set_band_description(6, 'ndwi')
 
             print('ALL DONE')
 
