@@ -5,8 +5,8 @@ import numpy as np
 from shapely.geometry import box, shape
 import pandas as pd
 
-import raster.validate, shape.shape_tools, config
-from raster import interpolate
+import shape.shape_tools, config
+from raster import interpolate, validate, array_tools
 
 '''
 Get imagery from a shape with optional polygon border overlay
@@ -91,14 +91,14 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
 
                     # fill -999 no_data values with np.nan
                     band_array = np.where(band_array == -999, np.nan, band_array)
-                    if src.nodata is not None:
-                        band_array[band_array == src.nodata] = np.nan
+                    # if src.nodata is not None:
+                    #     band_array[band_array == src.nodata] = np.nan
 
 
-                    if np.isnan(band_array).any():
-                        print(f'interpolating...')
-                        band_array = interpolate.fmm(band_array, grid=5)
-                        print(f'done interpolation!')
+                    # if np.isnan(band_array).any():
+                    #     print(f'interpolating...')
+                    #     band_array = interpolate.fmm(band_array, grid=5)
+                    #     print(f'done interpolation!')
 
                     stacked_bands.append(band_array)
                     
@@ -108,8 +108,7 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
 
             if not config.MAX_SIZE:
                 print(f'croping image...')
-                image = np.ascontiguousarray(image[:, :size, :size])
-                
+                image = np.ascontiguousarray(array_tools.center_crop(image, size, size))
 
             out_meta = ({
                 "driver": "GTiff",
@@ -129,23 +128,23 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
             
             if verify:
                 print(f'checking cloud cover...')
-                if not raster.validate.cloud_filter(image, cloud_threshold=0.20, shadow_threshold=0.30) and not getAll:
+                if not validate.cloud_filter(image, cloud_threshold=0.20, shadow_threshold=0.30) and not getAll:
                     print(f'cloud covered...')
                     print(f'skipping...')
                     continue
 
-                if not raster.validate.contrast_filter(image=image, threshold=0.1) and not getAll:
+                if not validate.contrast_filter(image=image, threshold=0.1) and not getAll:
                     print('contrast filter')
                     print('skipping...')
                     continue
 
-                if not raster.validate.sharpness_filter(image=image, threshold=0.1) and not getAll:
+                if not validate.sharpness_filter(image=image, threshold=0.1) and not getAll:
                     print('sharpness filter')
                     print('skipping...')
                     continue
             
             print(f'verifing data integrity...')
-            if not raster.validate.dataIntegrity(image, threshold=0.05) and not getAll:
+            if not validate.dataIntegrity(image, threshold=0.05) and not getAll:
                 print(f'scene integrity compromissed..')
                 print(f'skipping...')
                 continue

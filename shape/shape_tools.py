@@ -131,24 +131,24 @@ def window(shape, src, max_size=True, size=config.RESOLUTION, min_max=False, crs
 
     return window
 
-def divide(shape, crs="EPSG:3857", overlap = config.RESOLUTION * 0.05):
+def divide(shape:np.array, crs:str="EPSG:3857", overlap:float=config.RESOLUTION * 0.05, spatial_resolution:int=1) -> list[np.array]:
     shape = shape.to_crs(crs)
     unified_shape = shape.unary_union
     minx, miny, maxx, maxy = shape.total_bounds
     
-    passo = config.RESOLUTION - overlap
+    step = (config.RESOLUTION  - overlap) * spatial_resolution
 
-    if passo < 0:
+    if step < 0:
         raise ValueError("O overlap não pode ser maior ou igual ao tamanho do quadrado!")
 
-    x_coords = np.arange(minx, maxx, passo)
-    y_coords = np.arange(miny, maxy, passo)
+    x_coords = np.arange(minx, maxx, step)
+    y_coords = np.arange(miny, maxy, step)
 
     grids_validos = []
 
     for x in x_coords:
         for y in y_coords:
-            quadrado = box(x, y, x + config.RESOLUTION, y + config.RESOLUTION)
+            quadrado = box(x, y, x + (config.RESOLUTION * spatial_resolution), y + (config.RESOLUTION * spatial_resolution))
 
             if unified_shape.intersects(quadrado):
                 grids_validos.append(quadrado)

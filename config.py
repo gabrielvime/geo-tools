@@ -16,7 +16,7 @@ SOURCES = {
 
 ### WINDOW CONFIGURATIONS ###
 SQUARE=True
-RESOLUTION = 512            # final square resolution
+RESOLUTION = 1024            # final square resolution
 EXPAND_FACTOR = 1.0         # expansion factor (1.0 means original size), not recommended to mess with this
 ZOOM = 18                   #XYZ Tiles Zoom
 MAX_SIZE=False

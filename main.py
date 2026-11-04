@@ -14,6 +14,7 @@ import rasterio
 from datetime import date, timedelta, datetime
 from scipy import ndimage
 import csv
+import cv2
 
 def main(source, test=False):
 
@@ -74,7 +75,7 @@ def main(source, test=False):
 
             print(f'data frame = {data_frame.total_bounds}')
 
-            for shape in shape_tools.divide(shape=data_frame):
+            for shape in shape_tools.divide(shape=data_frame, overlap=64, spatial_resolution=2):
 
                 shape_gdf = gpd.GeoDataFrame(geometry=[shape], crs="EPSG:3857")
                 shape_gdf = shape_gdf.to_crs(data_frame.crs)
@@ -95,16 +96,20 @@ def main(source, test=False):
 
                 shapefile_name = f'{row['id']}'
                 print(f'name: {shapefile_name}')
+               
+                # if idx != 16:
+                #     idx += 1
+                #     continue
 
-                ## get cbers imagery
+                ## get RGB NIR cbers imagery
                 cbers_imagery, cbers_meta, _ = stac.getData(
                     gdf=part   , 
                     shapefile_name=shapefile_name, 
                     source='cbers', 
                     timeframe=config.DATETIME, 
-                    size=128, 
+                    size=int(config.RESOLUTION // 4), 
                     assets=['BAND1', 'BAND2', 'BAND3', 'BAND4'], 
-                    verify=True, 
+                    verify=False, 
                     aux_shape=None, 
                     getAll=False
                     )
@@ -117,7 +122,7 @@ def main(source, test=False):
                     shapefile_name=shapefile_name + '_PAN', 
                     source='cbers', 
                     timeframe=config.DATETIME, 
-                    size=512, 
+                    size=config.RESOLUTION, 
                     assets=['BAND0'], 
                     verify=False, 
                     aux_shape=None, 
@@ -144,30 +149,44 @@ def main(source, test=False):
                 # cbers_pan[cut:-cut, cut:-cut]
 
 
-                fusion = 'nnd'
-                # # NND Pansharpenning
-                print(f'\n starting {fusion} pansharpening\n')
-                low_res_img = np.transpose(cbers_imagery, (1,2,0))
+                nir = cbers_imagery[3]
+                print('cauculating indexes...')
+                ndvi = indexes.ndvi(nir=nir, red=cbers_imagery[2])
+                ndwi = indexes.ndwi(green=cbers_imagery[1], nir=nir)
+
+                # remove nir from stack to not mess with pansharpenning
+                cbers_imagery = np.delete(cbers_imagery, 3, axis=0)
+
+
+                fusion = 'gsa'
+                cbers_imagery = np.transpose(cbers_imagery, (1,2,0))
 
                 
-                low_res_img = np.ascontiguousarray(low_res_img, dtype=np.float32)
+                cbers_imagery = np.ascontiguousarray(cbers_imagery, dtype=np.float32)
                 pan_img = np.ascontiguousarray(cbers_pan, dtype=np.float32)[0, :, :]
                 
                 ratio = 4
 
-                if (low_res_img.shape[1] * ratio) < pan_img.shape[1]:
+                if (cbers_imagery.shape[1] * ratio) < pan_img.shape[1]:
 
-                    diff = pan_img.shape[1] - ( low_res_img.shape[1] * ratio )
+                    diff = pan_img.shape[1] - ( cbers_imagery.shape[1] * ratio )
                     pan_img = pan_img[:-diff,:-diff]
                 
                 print(f' PAN SHAPE: {pan_img.shape}')
-                print(f' RGB SHAPE: {low_res_img.shape}')
+                print(f' RGB SHAPE: {cbers_imagery.shape}')
 
-                fused_image = pansharpening.nndiffuse(
-                    ms_img=low_res_img,
-                    pan_img=pan_img,
-                    ratio=ratio
-                    )
+
+                
+                # # NND Pansharpenning
+                print(f'\n starting {fusion} pansharpening\n')
+                if fusion == 'nnd':
+                    fused_image = pansharpening.nndiffuse(
+                        ms_img=cbers_imagery,
+                        pan_img=pan_img,
+                        ratio=ratio
+                        )
+                elif fusion == 'gsa':
+                    fused_image = pansharpening.gsa(pan=pan_img, ms=cbers_imagery, weights=np.array([-0.91362598,  2.87242526, -0.64374208, 67.68559085]))
                 
                 print('image fused!')
                 fused_image = np.transpose(fused_image, (2, 0, 1))
@@ -177,15 +196,15 @@ def main(source, test=False):
 
                 csv_metadata['ASSETS'] = cbers_assets
 
-                print('separating bands...')
+                print('separating fusioned bands...')
                 # BANDS
                 blue = fused_image[0]
                 green = fused_image[1]
-                red = fused_image[2]
-                nir = fused_image[3]
-                print('cauculating indexes...')
-                ndvi = indexes.ndvi(nir=nir, red=red)
-                ndwi = indexes.ndwi(green=green, nir=nir)
+                red = fused_image[2]  
+                # interpolate nir and indexes to match fusioned
+                nir = cv2.resize(nir, blue.shape, interpolation=cv2.INTER_CUBIC)
+                ndvi = cv2.resize(ndvi, blue.shape, interpolation=cv2.INTER_CUBIC)
+                ndwi = cv2.resize(ndwi, blue.shape, interpolation=cv2.INTER_CUBIC)
 
                 print(f'normalizing...')
                 nomalized_red = normalize.winsorization_min_max(band=red)
@@ -194,6 +213,8 @@ def main(source, test=False):
                 nomalized_nir = normalize.winsorization_min_max(band=nir)
                 nomalized_ndvi = normalize.winsorization_min_max(band=ndvi)
                 nomalized_ndwi = normalize.winsorization_min_max(band=ndwi)
+
+                print(f'\n rgb: {blue.shape} \n dnvi: { ndvi.shape}')
 
 
                 print('stacking...')
@@ -205,8 +226,6 @@ def main(source, test=False):
                     nomalized_ndvi, 
                     nomalized_ndwi
                     ])
-
-                print(f'NAN VALUES: {np.count_nonzero(np.isnan(fused_cbers))}')
 
                 csv_metadata['PANSHARPENING'] = fusion
                 
@@ -223,7 +242,7 @@ def main(source, test=False):
                 fused_name = f'{source}_{row['id']}_{csv_metadata['PROCESSO'].replace('/', '-')}_{str(csv_metadata['DATA'])}_{fusion}_normalized_{idx}.tiff'
                 csv_metadata['NOME'] = fused_name
 
-                print(csv_metadata)
+                # print(csv_metadata)
 
                 print('\n wiriting csv file')
                 # WRITES DATA TO CSV
