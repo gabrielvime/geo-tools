@@ -131,7 +131,7 @@ def window(shape, src, max_size=True, size=config.RESOLUTION, min_max=False, crs
 
     return window
 
-def divide(shape, crs="EPSG:3857", overlap = config.RESOLUTION * 0.25):
+def divide(shape, crs="EPSG:3857", overlap = config.RESOLUTION * 0.05):
     shape = shape.to_crs(crs)
     unified_shape = shape.unary_union
     minx, miny, maxx, maxy = shape.total_bounds

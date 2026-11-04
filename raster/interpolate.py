@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 
-def fmm(image:np.float32, grid:int=3) -> np.array:
+def fmm(image:np.array, grid:int=3) -> np.array:
     """OpenCV's Fast Marching Method (FMM) inpaint.
 
     seamlessly blend the points with their immediate surrounding 'grid' x 'grid' neighborhoods.
@@ -17,6 +17,9 @@ def fmm(image:np.float32, grid:int=3) -> np.array:
     Raises:
         ValueError: If the imagee is not in no.float32 format.
     """ 
+
+    if image.dtype != np.float32:
+        raise ValueError("Image must be in np.float32 format.")
 
     try:
         # binary mask of wherre the NaN valuees aree

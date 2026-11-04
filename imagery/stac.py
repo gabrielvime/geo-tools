@@ -17,6 +17,7 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
     print(f'loading polygon...')
     
     bbox = gdf.total_bounds
+    print(f'bbox = {gdf.total_bounds}')
     print(f'shape: {shapefile_name}')
 
     print(f'connecting to source...')
@@ -84,7 +85,6 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
                     print(f'getting band {band_key}...')
                     band_array = src.read(1,window=window, boundless=True, fill_value=-999)
 
-                    print(f'-999 VALUES BEFORE: {np.count_nonzero(band_array == -999)}')
                     
                     # convert to np.float32
                     band_array = band_array.astype(np.float32)
@@ -93,14 +93,12 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
                     band_array = np.where(band_array == -999, np.nan, band_array)
                     if src.nodata is not None:
                         band_array[band_array == src.nodata] = np.nan
-                    
-                    print(f'NAN VALUES BEFORE: {np.count_nonzero(np.isnan(band_array))}')
+
 
                     if np.isnan(band_array).any():
                         print(f'interpolating...')
                         band_array = interpolate.fmm(band_array, grid=5)
-
-                    print(f'NAN VALUES: {np.count_nonzero(np.isnan(band_array))}')
+                        print(f'done interpolation!')
 
                     stacked_bands.append(band_array)
                     
@@ -121,11 +119,10 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
                 "transform": transform,
                 "crs": scene_crs,
                 "dtype": image.dtype.name,
-                "nodata": 0
+                "nodata": np.nan
             })
             
-            #out_meta.pop("blockxsize", None)
-            #ut_meta.pop("blockysize", None)
+            #metadata['SIZE'] = out_meta[0].get('width')
                     
             
             # image validations
