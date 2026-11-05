@@ -85,7 +85,7 @@ def window(shape, src, max_size=True, size=config.RESOLUTION, min_max=False, crs
     Return bounding window fo given gdf shape
     if min_max, return minX, maX, minY, maxY
     '''
-    
+
     if crs=='EPSG:3857':
         shape = shape.to_crs(crs)
 
@@ -102,7 +102,7 @@ def window(shape, src, max_size=True, size=config.RESOLUTION, min_max=False, crs
 
     if config.SQUARE:
 
-        square = max(width, height) * config.EXPAND_FACTOR if config.MAX_SIZE else size * pixel_size * config.EXPAND_FACTOR
+        square = max(width, height) * config.EXPAND_FACTOR if max_size else size * pixel_size * config.EXPAND_FACTOR
 
         exp_minx = cx - (square / 2)
         exp_maxx = cx + (square / 2)
@@ -111,7 +111,7 @@ def window(shape, src, max_size=True, size=config.RESOLUTION, min_max=False, crs
 
     else:
 
-        expand = max(width, height) - min(height, width) if config.MAX_SIZE else 0 
+        expand = max(width, height) - min(height, width) if max_size else 0 
         exp_minx = cx - (((width + expand) * config.EXPAND_FACTOR) / 2) 
         exp_maxx = cx + (((width + expand) * config.EXPAND_FACTOR) / 2) 
         exp_miny = cy - (((height + expand) * config.EXPAND_FACTOR) / 2)

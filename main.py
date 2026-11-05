@@ -73,7 +73,42 @@ def main(source, test=False):
             gdf_list = []
             data_frame = gpd.GeoDataFrame(geometry=[polygon], crs=gdf.crs)
 
-            print(f'data frame = {data_frame.total_bounds}')
+            #print(f'data frame = {data_frame.total_bounds}')
+
+            #calculate parameters for pansharpening algorithms
+            print(f'getting global imagery')
+            global_imagery, _, _ = stac.getData(
+                    gdf=data_frame   , 
+                    shapefile_name="global", 
+                    source='cbers', 
+                    timeframe=config.DATETIME, 
+                    size=int(config.RESOLUTION // 4),
+                    max_size=True, 
+                    assets=['BAND1', 'BAND2', 'BAND3'], 
+                    verify=False, 
+                    aux_shape=None, 
+                    getAll=False
+                    )
+
+            global_pan, _, _ = stac.getData(
+                    gdf=data_frame   , 
+                    shapefile_name="global_pan", 
+                    source='cbers', 
+                    timeframe=config.DATETIME, 
+                    size=config.RESOLUTION, 
+                    max_size=True,
+                    assets=['BAND0'], 
+                    verify=False, 
+                    aux_shape=None, 
+                    getAll=False
+                    )
+
+            print(f'reshaping imagery')
+            global_imagery = np.ascontiguousarray(global_imagery, dtype=np.float32)
+            global_pan = np.ascontiguousarray(global_pan, dtype=np.float32)[:, :, 0,]
+
+            print(f'calculating global gsa params')
+            _, params = pansharpening.gsa(pan=global_pan, ms=global_imagery)
 
             for shape in shape_tools.divide(shape=data_frame, overlap=64, spatial_resolution=2):
 
@@ -90,9 +125,12 @@ def main(source, test=False):
             output_dir.mkdir(parents=True, exist_ok=True)
             
             idx=1
+            total_parts = len(gdf_list)
             for part in gdf_list:
 
-                print(f'\n STARTING FOR {idx} OF {len(gdf_list)}\n')
+                print(f'\n STARTING FOR {idx} OF {total_parts}\n')
+
+                csv_metadata['PARTE'] = f'{idx}/{total_parts}'
 
                 shapefile_name = f'{row['id']}'
                 print(f'name: {shapefile_name}')
@@ -107,7 +145,8 @@ def main(source, test=False):
                     shapefile_name=shapefile_name, 
                     source='cbers', 
                     timeframe=config.DATETIME, 
-                    size=int(config.RESOLUTION // 4), 
+                    size=256,
+                    max_size=config.MAX_SIZE, 
                     assets=['BAND1', 'BAND2', 'BAND3', 'BAND4'], 
                     verify=False, 
                     aux_shape=None, 
@@ -123,6 +162,7 @@ def main(source, test=False):
                     source='cbers', 
                     timeframe=config.DATETIME, 
                     size=config.RESOLUTION, 
+                    max_size=config.MAX_SIZE,
                     assets=['BAND0'], 
                     verify=False, 
                     aux_shape=None, 
@@ -137,48 +177,51 @@ def main(source, test=False):
                 print(f'CBERS IMAGERY GOT')
 
 
-                print(f'separating PAN band...')
-
-                # cbers_pan = cbers_imagery[0]
-
-                # # delete the pan band from the original stack
-                # cbers_imagery = np.delete[cbers_imagery, 0]
-
-                # cut = ( cbers_imagery.shape[1] - ( (cbers_imagery.shape[1])/4 ) ) / 2
-                
-                # cbers_pan[cut:-cut, cut:-cut]
 
 
-                nir = cbers_imagery[3]
+                nir = cbers_imagery[:,:,3]
+
                 print('cauculating indexes...')
-                ndvi = indexes.ndvi(nir=nir, red=cbers_imagery[2])
-                ndwi = indexes.ndwi(green=cbers_imagery[1], nir=nir)
+                ndvi = indexes.ndvi(nir=nir, red=cbers_imagery[:,:,2])
+                ndwi = indexes.ndwi(green=cbers_imagery[:,:,1], nir=nir)
 
                 # remove nir from stack to not mess with pansharpenning
-                cbers_imagery = np.delete(cbers_imagery, 3, axis=0)
+                cbers_imagery = np.delete(cbers_imagery, 3, axis=2)
 
+               
 
                 fusion = 'gsa'
-                cbers_imagery = np.transpose(cbers_imagery, (1,2,0))
+                # cbers_imagery = np.transpose(cbers_imagery, (1,2,0))
 
                 
                 cbers_imagery = np.ascontiguousarray(cbers_imagery, dtype=np.float32)
-                pan_img = np.ascontiguousarray(cbers_pan, dtype=np.float32)[0, :, :]
+                pan_img = np.ascontiguousarray(cbers_pan, dtype=np.float32)[:, :, 0,]
                 
                 ratio = 4
 
-                if (cbers_imagery.shape[1] * ratio) < pan_img.shape[1]:
+                # if (cbers_imagery.shape[1] * ratio) < pan_img.shape[1]:
 
-                    diff = pan_img.shape[1] - ( cbers_imagery.shape[1] * ratio )
-                    pan_img = pan_img[:-diff,:-diff]
+                #     diff = pan_img.shape[1] - ( cbers_imagery.shape[1] * ratio )
+                #     pan_img = pan_img[:-diff,:-diff]
                 
-                print(f' PAN SHAPE: {pan_img.shape}')
-                print(f' RGB SHAPE: {cbers_imagery.shape}')
+                # print(f' PAN SHAPE: {pan_img.shape}')
+                # print(f' RGB SHAPE: {cbers_imagery.shape}')
 
 
-                
+                # params = {'weights': list([-0.91362598,  2.87242526, -0.64374208, 67.68559085]), 
+                #         'mean_sim': np.float64(226.93916320800807), 
+                #         'std_sim': np.float64(89.05930569031224), 
+                #         'mean_pan': np.float32(226.93915), 
+                #         'std_pan': np.float32(95.71084), 
+                #         'g_i': list([0.91057864, 0.87403487, 1.05425853])}
+
                 # # NND Pansharpenning
                 print(f'\n starting {fusion} pansharpening\n')
+
+                print(f'\nms = {cbers_imagery.shape} \n pan = {pan_img.shape} \n params = {params} \n')
+
+
+
                 if fusion == 'nnd':
                     fused_image = pansharpening.nndiffuse(
                         ms_img=cbers_imagery,
@@ -186,10 +229,12 @@ def main(source, test=False):
                         ratio=ratio
                         )
                 elif fusion == 'gsa':
-                    fused_image = pansharpening.gsa(pan=pan_img, ms=cbers_imagery, weights=np.array([-0.91362598,  2.87242526, -0.64374208, 67.68559085]))
+                    fused_image, _ = pansharpening.gsa(pan=pan_img, ms=cbers_imagery, param=params)
                 
                 print('image fused!')
-                fused_image = np.transpose(fused_image, (2, 0, 1))
+
+                #print(params)
+                # fused_image = np.transpose(fused_image, (2, 0, 1))
                 fused_image = np.ascontiguousarray(fused_image, dtype=np.float32)
 
                 cbers_assets = ['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']
@@ -198,9 +243,9 @@ def main(source, test=False):
 
                 print('separating fusioned bands...')
                 # BANDS
-                blue = fused_image[0]
-                green = fused_image[1]
-                red = fused_image[2]  
+                blue = fused_image[:,:,0]
+                green = fused_image[:,:,1]
+                red = fused_image[:,:,2]  
                 # interpolate nir and indexes to match fusioned
                 nir = cv2.resize(nir, blue.shape, interpolation=cv2.INTER_CUBIC)
                 ndvi = cv2.resize(ndvi, blue.shape, interpolation=cv2.INTER_CUBIC)
@@ -213,8 +258,6 @@ def main(source, test=False):
                 nomalized_nir = normalize.winsorization_min_max(band=nir)
                 nomalized_ndvi = normalize.winsorization_min_max(band=ndvi)
                 nomalized_ndwi = normalize.winsorization_min_max(band=ndwi)
-
-                print(f'\n rgb: {blue.shape} \n dnvi: { ndvi.shape}')
 
 
                 print('stacking...')
@@ -232,8 +275,8 @@ def main(source, test=False):
                 fused_meta = cbers_pan_meta
                 fused_meta.update({
                     "count": min(fused_cbers.shape),
-                    "height": fused_image.shape[1],
-                    "width": fused_image.shape[2],
+                    "height": fused_image.shape[0],
+                    "width": fused_image.shape[1],
                     "dtype": np.float32,
                     "nodata": np.nan
                 })
@@ -246,9 +289,9 @@ def main(source, test=False):
 
                 print('\n wiriting csv file')
                 # WRITES DATA TO CSV
-                with open(save_dir + '/metadata.csv', mode='w', encoding='utf-8', newline='') as csv_file:
+                with open(save_dir + '/metadata.csv', mode='a', encoding='utf-8', newline='') as csv_file:
                     csv_writer = csv.DictWriter(csv_file, fieldnames=headers)
-                    csv_writer.writeheader()
+                    # csv_writer.writeheader()
                     csv_writer.writerow(csv_metadata)
 
                 print(f'\nsaving geotiff as {fused_name}\n')

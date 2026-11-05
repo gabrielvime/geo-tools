@@ -7,7 +7,6 @@ def nndiffuse(ms_img, pan_img, ratio, sigma_intensity=15.0, sigma_spatial=None):
     Nearest-Neighbor Diffusion-Based Pan-Sharpening (NNDiffuse) in NumPy.
     
     Parameters:
-    -----------
     ms_img : ndarray of shape (H_low, W_low, Bands)
         Low-resolution multispectral image.
     pan_img : ndarray of shape (H_high, W_high)
@@ -92,67 +91,118 @@ def nndiffuse(ms_img, pan_img, ratio, sigma_intensity=15.0, sigma_spatial=None):
 
 
 
-def gsa(pan: np.ndarray, ms: np.ndarray, weights=None) -> np.ndarray:
-    """
-    Applies the Gram-Schmidt Adaptive (GSA) algorithm for Pan-Sharpening.
+import numpy as np
+import cv2
 
+def gsa(
+    pan: np.ndarray[tuple[int, int], np.dtype[np.float32]], 
+    ms: np.ndarray[tuple[int, int, int], np.dtype[np.float32]],
+    param: dict[str, np.float32] | None = None,
+    clip_max:np.dtype[np.float32] | None = None
+    ) -> tuple[np.ndarray[tuple[int, int, int], np.dtype[np.float32]], dict[str, np.float32]]:
+    """Applies Gram-Schmidt Adaptive (GSA) for Pan-Sharpening.     
+
+    Receives a Multispectral imagery and a pan imagery, uses the GSA algothim to pansharpen,
+    if params are provided uses them, else calculate each one.
+    returms the sharpened imagery and the parameters for reusability.
+    
     Args:
-        pan (np.ndarray): High-resolution panchromatic image (2D array, shape: H x W).
-        ms (np.ndarray): Low-resolution multispectral image (3D array, shape: h x w x Bands).
-
+        pan:   
+            pan imagery.
+        ms:
+            multispectral imagery.
+        param:
+            paremeters of the regression, if provided they will be used, else them will be calculate.
+    
     Returns:
-        np.ndarray: High-resolution multispectral image (Pan-sharpened).
+        A tuple cointaing the pansharpened imagery and the parameters .
+
+    Raises:
+        ValueError: if the bands are not in the correct shape.
+
+
     """
-    # Check image dimensions
-    if pan.ndim != 2:
-        raise ValueError("The PAN image must have 2 dimensions (H, W).")
-    if ms.ndim != 3:
-        raise ValueError("The MS image must have 3 dimensions (h, w, Bands).")
+
+    if pan.ndim != 2: raise ValueError(f"Incorrect {pan.shape} PAN shape, must be (H, W).")
+    if ms.ndim != 3: raise ValueError(f"Incorrect {ms.shape} MS shape, must be (h, w, Bands).")
 
     H, W = pan.shape
     h, w, num_bands = ms.shape
 
-    # 1. Upsampling the MS image to match PAN size (using Bicubic interpolation)
+    # MS upsampling using cubic interpolation
     if (h, w) != (H, W):
         ms_up = cv2.resize(ms, (W, H), interpolation=cv2.INTER_CUBIC)
     else:
         ms_up = ms.copy()
 
-    # Flatten matrices for easier statistical and matrix calculations
     ms_flat = ms_up.reshape(-1, num_bands)
     pan_flat = pan.ravel()
 
-    # 2. Simulation of the PAN band (Pan_Sim) via Multiple Linear Regression
-    # Add a column of 1s for the bias (intercept) of the linear equation
+    # add 1s for linear equation bias
     X = np.hstack([ms_flat, np.ones((ms_flat.shape[0], 1))])
-    
-    if weights is None:
-        # Solve the regression: W = (X^T X)^-1 X^T Y
-        print(f'erro aqui')
-        exit()
+
+    if param is None:
+
+        print(f'calculating params...')
+        # regression: W = (X^T X)^-1 X^T Y
         weights, _, _, _ = np.linalg.lstsq(X, pan_flat, rcond=None)
+        pan_sim_flat = X @ weights
+
+        # Histogram Matching params
+        mean_sim, std_sim = np.mean(pan_sim_flat), np.std(pan_sim_flat)
+        mean_pan, std_pan = np.mean(pan_flat), np.std(pan_flat)
+        if std_pan == 0: std_pan = 1.0 
+
+        # (g_i) injection weights
+        var_pan_sim = np.var(pan_sim_flat)
+        g_i_array = np.zeros(num_bands)
+        
+        for i in range(num_bands):
+            cov_matrix = np.cov(ms_flat[:, i], pan_sim_flat)
+            cov_val = cov_matrix[0, 1]
+            g_i = cov_val / var_pan_sim if var_pan_sim != 0 else 0
+            g_i_array[i] = np.clip(g_i, -3.0, 3.0) # Atenuação para evitar tom rosa
+
+        param = {
+            'weights': weights,
+            'mean_sim': mean_sim,
+            'std_sim': std_sim,
+            'mean_pan': mean_pan,
+            'std_pan': std_pan,
+            'g_i': g_i_array
+        }
+    else:
+        print(f'using provided params...')
+        # loads param values
+        weights = param['weights']
+        mean_sim = param['mean_sim']
+        std_sim = param['std_sim']
+        mean_pan = param['mean_pan']
+        std_pan = param['std_pan']
+        g_i_array = param['g_i']
+        
+        # simulated pan
+        pan_sim_flat = X @ weights
 
 
-    # Generate simulated Pan using calculated weights
-    pan_sim_flat = X @ weights
-    pan_sim = pan_sim_flat.reshape(H, W)
 
-    # 3. Extraction of high-frequency details (Original Pan - Simulated Pan)
-    high_freq_details = pan - pan_sim
+    # Histogram Matching in original PAN
+    pan_matched = ((pan_flat - mean_pan) / std_pan) * std_sim + mean_sim
 
-    # 4. Calculation of injection weights (g) and application to the MS image
-    ms_sharpened = np.zeros_like(ms_up, dtype=np.float32)
-    var_pan_sim = np.var(pan_sim_flat)
+    # details extraction
+    high_freq_details = pan_matched - pan_sim_flat
 
+    # injecting in ms bands
+    ms_sharpened_flat = np.zeros_like(ms_flat, dtype=np.float32)
     for i in range(num_bands):
-        # g_i = covariance(Band_i, Pan_sim) / variance(Pan_sim)
-        cov_matrix = np.cov(ms_flat[:, i], pan_sim_flat)
-        cov_val = cov_matrix[0, 1]
-        
-        # Prevent division by zero
-        g_i = cov_val / var_pan_sim if var_pan_sim != 0 else 0
-        
-        # 5. Inject details into the current band
-        ms_sharpened[:, :, i] = ms_up[:, :, i] + (g_i * high_freq_details)
+        ms_sharpened_flat[:, i] = ms_flat[:, i] + (g_i_array[i] * high_freq_details)
 
-    return ms_sharpened
+    # clipping to avoid underflow / overflow
+    if clip_max is None:
+        clip_max = np.max(ms)
+        
+    ms_sharpened_flat = np.clip(ms_sharpened_flat, 0, clip_max)
+
+    ms_sharpened = ms_sharpened_flat.reshape(H, W, num_bands)
+
+    return ms_sharpened, param

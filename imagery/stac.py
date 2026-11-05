@@ -12,12 +12,19 @@ from raster import interpolate, validate, array_tools
 Get imagery from a shape with optional polygon border overlay
 '''
 
-def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.RESOLUTION, assets=[], verify=True, aux_shape=None, getAll=True):
+def getData(
+        gdf, shapefile_name, 
+        source, timeframe=config.DATETIME, 
+        size=config.RESOLUTION, 
+        max_size=config.MAX_SIZE,
+        assets=[], 
+        verify=True, aux_shape=None, 
+        getAll=True
+    ):
 
     print(f'loading polygon...')
     
     bbox = gdf.total_bounds
-    print(f'bbox = {gdf.total_bounds}')
     print(f'shape: {shapefile_name}')
 
     print(f'connecting to source...')
@@ -41,6 +48,7 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
     print(f'SHAPE: {shapefile_name}')
     print()
 
+    #print(f'\n max size = {max_size}')
 
     success = False
     print(f'total scenes received: {len(items)}')
@@ -75,10 +83,10 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
                         scene_crs = src.crs
                         print(f'calculating scene bounds...')
                         
-                        window = shape.shape_tools.window(gdf, src, max_size=config.MAX_SIZE, size=size, crs='EPSG:4326')
+                        window = shape.shape_tools.window(gdf, src, max_size=max_size, size=size, crs='EPSG:4326')
                         transform = rasterio.windows.transform(window, src.transform)
 
-                    window = shape.shape_tools.window(gdf, src, max_size=config.MAX_SIZE, size=size, crs='EPSG:4326')
+                    window = shape.shape_tools.window(gdf, src, max_size=max_size, size=size, crs='EPSG:4326')
                     
                     # get image
                     # we fill missing values with numpy nan
@@ -99,16 +107,21 @@ def getData(gdf, shapefile_name, source, timeframe=config.DATETIME, size=config.
                     #     print(f'interpolating...')
                     #     band_array = interpolate.fmm(band_array, grid=5)
                     #     print(f'done interpolation!')
+                    
+                    # chanel last
+                    
+                    if not max_size:
+                        print(f'croping image...')
+                        band_array = np.ascontiguousarray(array_tools.center_crop(band_array, size, size))
 
                     stacked_bands.append(band_array)
                     
                     #print(f'getting band {band_key}... DONE!', end='', flush=True)
             
             image = np.stack(stacked_bands)
+            image = np.transpose(image, (1,2,0))
 
-            if not config.MAX_SIZE:
-                print(f'croping image...')
-                image = np.ascontiguousarray(array_tools.center_crop(image, size, size))
+            
 
             out_meta = ({
                 "driver": "GTiff",
