@@ -79,16 +79,14 @@ def sharpness_filter(image, threshold=0.1):
         return True
 
 
-def dataIntegrity(image, threshold=0.10):
+def dataIntegrity(image, no_data=0):
     '''
     Verify data integrity
     Images with no data
     '''
 
-    total_pixels = image[0].size
-    empty_pixels = np.count_nonzero(image[0] == 0)
+    total_pixels = image[0].size * image[1].size
+    empty_pixels = np.count_nonzero(image == no_data)
+    percentage = empty_pixels / total_pixels
     
-    if (empty_pixels / total_pixels) > 0.10:
-        return False
-    else:
-        return True
+    return percentage
