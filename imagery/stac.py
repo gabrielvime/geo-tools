@@ -54,6 +54,8 @@ def getData(
     print(f'total scenes received: {len(items)}')
     print(f'processing fromm newest to oldest...')    
     items.sort(key=lambda x: x.datetime, reverse=True)
+
+    no_data_fill = -999
     
     for item in items:
 
@@ -61,6 +63,7 @@ def getData(
         
         window = None
 
+        print(f'working in {item.datetime.date()}:\n')
         metadata = {
                     'DATE': item.datetime.date(), 
                     'NAME': f'{item.id}',
@@ -76,65 +79,73 @@ def getData(
 
                 band_href = item.assets[band_key].href
 
-                with rasterio.open(band_href) as src:
+                with rasterio.open(band_href) as scene_data:
                     
                     if window is None:
-                        gdf = gdf.to_crs(src.crs)
-                        scene_crs = src.crs
-                        print(f'calculating scene bounds...')
+                        gdf = gdf.to_crs(scene_data.crs)
+                        scene_crs = scene_data.crs
+                        print(f'calculating scene bounds... ', end="", flush=True)
                         
-                        window = shape.shape_tools.window(gdf, src, max_size=max_size, size=size, crs='EPSG:4326')
-                        transform = rasterio.windows.transform(window, src.transform)
+                        window = shape.shape_tools.window(gdf, scene_data, max_size=max_size, size=size, crs='EPSG:4326')
+                        transform = rasterio.windows.transform(window, scene_data.transform)
+                        print(f' DONE')
 
-                    window = shape.shape_tools.window(gdf, src, max_size=max_size, size=size, crs='EPSG:4326')
+                    window = shape.shape_tools.window(gdf, scene_data, max_size=max_size, size=size, crs='EPSG:4326')
                     
-                    # get image
-                    # we fill missing values with numpy nan
-                    print(f'getting band {band_key}...')
-                    band_array = src.read(1,window=window, boundless=True, fill_value=-999)
+                    # get band data
+                    # generally comes as np.ndarray(nd.dtype(np.int16))
 
-                    
-                    # convert to np.float32
+                    getting_band_print = f'getting band {band_key}... '
+                    print(f'\r{getting_band_print}\033[K', end="", flush=True)
+                    band_array = scene_data.read(1, window=window, boundless=True, fill_value=no_data_fill)
+
                     band_array = band_array.astype(np.float32)
 
-                    # fill -999 no_data values with np.nan
-                    band_array = np.where(band_array == -999, np.nan, band_array)
-                    # if src.nodata is not None:
-                    #     band_array[band_array == src.nodata] = np.nan
-
-
-                    # if np.isnan(band_array).any():
-                    #     print(f'interpolating...')
-                    #     band_array = interpolate.fmm(band_array, grid=5)
-                    #     print(f'done interpolation!')
-                    
-                    # chanel last
-                    
+                    # crops the imagery if dont want max_size
+                    # max_size is intended for calculate global params
+                    # or simply get thee whole imagery
                     if not max_size:
-                        print(f'croping image...')
+
+                        print(f'\r{getting_band_print} (croping image)\033[K', end="", flush=True)
                         band_array = np.ascontiguousarray(array_tools.center_crop(band_array, size, size))
+                    
+                    print(f'\r{getting_band_print} (verifing data integrity)\033[K', end="", flush=True) 
+
+                    # calculates the no_data values
+                    compromissed_integrity = validate.dataIntegrity(band_array, no_data=no_data_fill)
+
+                    # if data integrity is compromissed but under threshold
+                    # interpolates the no_data
+                    # if is bigger just skips
+                    # if is to getAll, then just save corrupted imagery
+                    if (compromissed_integrity > 0.0) and not getAll:
+
+                        if compromissed_integrity < 0.01:
+                            print(f'\r{getting_band_print} (interpolating remaing invalid data)\033[K', end="", flush=True)
+                            band_array = interpolate.fmm(image=band_array, grid=5, no_data=no_data_fill)
+
+                        else:
+                            print(f'\nscene integrity compromissed in {compromissed_integrity}...')
+                            print(f'skipping...')
+                            break          
+                        
+                    print(f"\r{getting_band_print} (DONE)\033[K")
 
                     stacked_bands.append(band_array)
-                    
-                    #print(f'getting band {band_key}... DONE!', end='', flush=True)
             
             image = np.stack(stacked_bands)
             image = np.transpose(image, (1,2,0))
 
-            
-
             out_meta = ({
                 "driver": "GTiff",
                 "count": len(assets),
-                "height": image.shape[1],
-                "width": image.shape[2],
+                "height": image.shape[0],
+                "width": image.shape[1],
                 "transform": transform,
                 "crs": scene_crs,
                 "dtype": image.dtype.name,
                 "nodata": np.nan
             })
-            
-            #metadata['SIZE'] = out_meta[0].get('width')
                     
             
             # image validations
@@ -155,13 +166,6 @@ def getData(
                     print('sharpness filter')
                     print('skipping...')
                     continue
-            
-            print(f'verifing data integrity...')
-            if not validate.dataIntegrity(image, threshold=0.05) and not getAll:
-                print(f'scene integrity compromissed..')
-                print(f'skipping...')
-                continue
-
 
             # draw polygon
             if config.DRAW_POLYGON:
@@ -190,14 +194,6 @@ def getData(
 
 
             return (image, out_meta, metadata)
-            
-
-            # output_filename = config.SOURCES.get(source)[1] + '/' + f"{shapefile_name}_{item.id}.tif"
-            # with rasterio.open(output_filename, "w", **out_meta) as dest:
-            #     dest.write(image)
-
-            # print(f'saved as {output_filename} with scene {item.id}')
-            # print()
 
             success = True
 
@@ -210,7 +206,6 @@ def getData(
         except Exception as e:
             print(f"failed in {item.id}: {e}")
             continue
-
 
     if not success:
         print("error: no scene found")
