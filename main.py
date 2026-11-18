@@ -1,7 +1,7 @@
 #import stac, shape_tools, config, web_tiles
 import config
 from shape import shape_tools
-from raster import indexes, pansharpening, normalize
+from raster import indexes, pansharpening, normalize, array_tools
 from imagery import stac
 
 import os
@@ -37,20 +37,25 @@ def main(source, test=False):
 
     save_dir = './PA/CBERS'
 
+    normalization_value = None
 
-    for geometry in shapes_list:
+    for file in shapes_list:
+
+        print(f'\n WORKING IN {str(file)}\n')
 
         # get geoDATAFRAME
-        gdf = shape_tools.gdf(config.SHAPE_PATH + '/' + geometry)     
+        gdf = shape_tools.gdf(config.SHAPE_PATH + '/' + file)     
 
         # iterate over geometries
         for idx, row in gdf.iterrows():
             print(f'\n {idx} - id: {row['id']} - processo: {row['processo']} \n')
 
-            # if row['id'] != 205964:
-            #     continue
+            if row['processo'] != "850922/2014":
+                continue
 
             polygon = row['geometry'].envelope
+
+            print(f'area: {row['area_ha']}')
 
             csv_metadata = {
                 'NOME': None,
@@ -75,6 +80,16 @@ def main(source, test=False):
             # print(headers)
 
             data_frame = gpd.GeoDataFrame(geometry=[polygon], crs=gdf.crs)
+
+            # gdf_area:float = data_frame.to_crs("EPSG:10857").area[0] / 10000
+            # target_area:float = ( (config.RESOLUTION * 2)  ** 2 ) / 10000
+
+            # print(f'calculated areas: {gdf_area} / {target_area}')
+
+            # if (gdf_area < target_area) or (gdf_area > 209):
+            #     continue
+
+
 
             # gets global imagery
             print(f'getting global imagery...')
@@ -116,9 +131,10 @@ def main(source, test=False):
             print(f'pansharpeenning...')
             
             # pansharpening
-            fusion = 'gsa'
+            fusion = 'gram-schmidt'
 
-            global_fused, _ = pansharpening.gsa(pan=global_pan, ms=global_imagery)
+            # global_fused, _ = pansharpening.gsa(pan=global_pan, ms=global_imagery)
+            global_fused = pansharpening.gram_schmidt(pan=global_pan, ms=global_imagery)
 
             csv_metadata['PANSHARPENING'] = fusion
 
@@ -129,7 +145,11 @@ def main(source, test=False):
             # normalize all
             print(f'normalizing...')
 
+            if normalization_value is None:
+                normalization_value = normalize.winsorization_min_max(band=global_fused, values=True)    
+
             global_fus_norm = normalize.winsorization_min_max(band=global_fused, values=False)
+            
             ndvi = (ndvi + 1) / 2
             ndwi = (ndwi + 1) / 2
 
@@ -177,9 +197,13 @@ def main(source, test=False):
 
 
 
-            # global_fus_norm = np.transpose(global_fus_norm, (2, 0, 1))
-            # with rasterio.open(save_dir + '/UNCLASSIFIED/' + 'TEST.tiff', "w", **g_f_n_meta) as dest:
-            #         dest.write(global_fus_norm)
+            global_fus_norm = np.transpose(global_fus_norm, (2, 0, 1))
+            with rasterio.open(save_dir + '/UNCLASSIFIED/' + 'GLOBAL.tiff', "w", **g_f_n_meta) as dest:
+                    dest.write(global_fus_norm)
+            
+            print(f'global saved')
+
+            global_fus_norm = np.transpose(global_fus_norm, (1, 2, 0))
 
             # exit()
    
@@ -191,19 +215,19 @@ def main(source, test=False):
 
             spatial_resolution = 2
 
-            gdf_area:float = data_frame.to_crs("ESRI:54009").area[0] / 1e6
-            target_area:float = ((config.RESOLUTION * spatial_resolution) / 1000 ) ** 2
+            gdf_area:float = data_frame.to_crs("EPSG:10857").area[0] / 10000
+            target_area:float = ( (config.RESOLUTION * spatial_resolution)  ** 2 ) / 10000
 
             print(f'gdf area: {gdf_area}')
             print(f'target area: {target_area}')
 
             if gdf_area > target_area:
                 print(f' dividing global imagery...')
-                tiles = shape_tools.divide(
+                tiles = array_tools.divide(
                     image=global_fus_norm,
                     shape_file=data_frame,
                     transform=g_f_n_meta['transform'],
-                    crs=data_frame.crs,
+                    crs=g_f_n_meta['crs'],
                     tile_size=config.RESOLUTION,
                     overlap=128,
                     spatial_resolution=spatial_resolution
@@ -218,55 +242,61 @@ def main(source, test=False):
             
             idx=1
             total_parts = len(tiles)
-            print(total_parts)
-            for part in tiles:
+    
+            for tile_tuple in tiles:
 
                 print(f'\n STARTING FOR {idx} OF {total_parts}\n')
 
-                csv_metadata['PARTE'] = f'{idx}/{total_parts}'
+                part = f'{idx}-{total_parts}'
+                csv_metadata['PARTE'] = part
+
+                tile = tile_tuple[0]
+                transform = tile_tuple[1]
                 
                 g_f_n_meta.update({
-                    "height": part.shape[0],
-                    "width": part.shape[1],
+                    "height": tile.shape[0],
+                    "width": tile.shape[1],
+                    "transform": transform
                 })
                   
-                fused_name = f'{source}_{row['id']}_{csv_metadata['PROCESSO'].replace('/', '-')}_{str(csv_metadata['DATA'])}_{fusion}_normalized_{idx}.tiff'
+                fused_name = f'{source}_{row['id']}_{csv_metadata['PROCESSO'].replace('/', '-')}_{str(csv_metadata['DATA'])}_{fusion}_normalized_{idx}-{total_parts}.tiff'
                 csv_metadata['NOME'] = fused_name
 
                 # print(csv_metadata)
 
-                print('\n wiriting csv file')
+                print('\n writing csv file')
                 # WRITES DATA TO CSV
                 with open(save_dir + '/metadata.csv', mode='a', encoding='utf-8', newline='') as csv_file:
                     csv_writer = csv.DictWriter(csv_file, fieldnames=headers)
                     # csv_writer.writeheader()
                     csv_writer.writerow(csv_metadata)
 
-                print(f'\nsaving geotiff as {fused_name}\n')
+                print(f'\n saving geotiff as {fused_name}\n')
                 # SAVE GEOTIFF FILE
                 with rasterio.open(save_dir + '/UNCLASSIFIED/' + fused_name, "w", **g_f_n_meta) as dest:
-                    dest.write(part[:,:, 0], 1)
+                    dest.write(tile[:,:, 0], 1)
                     dest.set_band_description(1, 'RED')
                     
-                    dest.write(part[:,:, 1], 2)
+                    dest.write(tile[:,:, 1], 2)
                     dest.set_band_description(2, 'GREEN')
 
-                    dest.write(part[:,:, 2], 3)
+                    dest.write(tile[:,:, 2], 3)
                     dest.set_band_description(3, 'BLUE')
 
-                    dest.write(part[:,:, 3], 4)
+                    dest.write(tile[:,:, 3], 4)
                     dest.set_band_description(4, 'NIR')
 
-                    dest.write(part[:,:, 4], 5)
+                    dest.write(tile[:,:, 4], 5)
                     dest.set_band_description(5, 'NDVI')
 
-                    dest.write(part[:,:, 5], 6)
+                    dest.write(tile[:,:, 5], 6)
                     dest.set_band_description(6, 'NDWI')
                 
-                exit()
+                print(f'saved part {part}')
                 idx += 1
 
             print('ALL DONE')
+
 
            
 

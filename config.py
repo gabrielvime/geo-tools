@@ -5,7 +5,7 @@ Configurations file
 from pystac_client import Client
 
 SOURCES = {
-    'cbers': ['CBERS-4A FUSED', 'cbers_imagery'], 
+    'cbers': ['CBERS-4A', 'cbers_imagery'], 
     'sentinel2': ['Sentinel-2 L2A (AWS)', 'sentinel2_imagery'],
     'google': ['Google XYZ Tiles', 'google_imagery-grids'],
     'bing': ['Bing STAC', 'bing_imagery'],
@@ -16,7 +16,7 @@ SOURCES = {
 
 ### WINDOW CONFIGURATIONS ###
 SQUARE=True
-RESOLUTION = 1024            # final square resolution
+RESOLUTION = 512            # final square resolution
 EXPAND_FACTOR = 1.0         # expansion factor (1.0 means original size), not recommended to mess with this
 ZOOM = 18                   #XYZ Tiles Zoom
 MAX_SIZE=False

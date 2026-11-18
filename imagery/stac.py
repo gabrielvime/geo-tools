@@ -61,7 +61,7 @@ def getData(
     print(f'getting scenes from:')
     print(f'SOURCE: {config.SOURCES.get(source)[0]}')
     print(f'COLLECTION: {items[0].collection_id}')
-    print(f'DATE FRAME:{items[len(items) - 1].datetime} to {items[0].datetime}')
+    print(f'DATE FRAME:{items[len(items) - 1].datetime.date()} to {items[0].datetime.date()}')
     print(f'SHAPE: {shapefile_name}')
     print()
 

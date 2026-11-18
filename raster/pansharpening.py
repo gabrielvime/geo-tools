@@ -2,6 +2,8 @@ import numpy as np
 from scipy.ndimage import zoom
 import cv2
 
+from type_aliases import ImageHW, ImageCHW, ImageHWC, ImageT
+
 def nndiffuse(ms_img, pan_img, ratio, sigma_intensity=15.0, sigma_spatial=None):
     """
     Nearest-Neighbor Diffusion-Based Pan-Sharpening (NNDiffuse) in NumPy.
@@ -206,3 +208,97 @@ def gsa(
     ms_sharpened = ms_sharpened_flat.reshape(H, W, num_bands)
 
     return ms_sharpened, param
+
+
+
+def gram_schmidt(
+    pan: ImageHW,
+    ms: ImageHWC,
+    weights: ImageT | None = None,
+    clip_range: tuple[float, float] | None = None,
+) -> ImageHWC:
+    """Perform classical Gram-Schmidt (GS) pan-sharpening.
+
+    Simulates a low-resolution panchromatic band from the multispectral bands,
+    applies forward Gram-Schmidt orthogonalization, replaces the first
+    component with the histogram-matched high-resolution panchromatic band,
+    and performs the inverse transformation.
+
+    Args:
+        pan: High-resolution panchromatic image with shape (H, W).
+        ms: Low-resolution multispectral image with shape (h, w, bands).
+        weights: Optional spectral weights of shape (bands,) to simulate the
+            low-resolution PAN. Defaults to equal weights (1 / bands).
+        clip_range: Optional (min, max) tuple to clip output values.
+
+    Returns:
+        Pan-sharpened multispectral image with shape (H, W, bands) and dtype float32.
+
+    Raises:
+        ValueError: If input array dimensions or weight shapes are invalid.
+    """
+    if pan.ndim != 2:
+        raise ValueError(f"Expected 2D PAN array (H, W), got shape {pan.shape}.")
+    if ms.ndim != 3:
+        raise ValueError(f"Expected 3D MS array (h, w, bands), got shape {ms.shape}.")
+
+    height, width = pan.shape
+    ms_h, ms_w, num_bands = ms.shape
+
+    if weights is None:
+        weights = np.full(num_bands, 1.0 / num_bands, dtype=np.float32)
+    elif weights.shape != (num_bands,):
+        raise ValueError(f"Expected weights of shape ({num_bands},), got {weights.shape}.")
+
+    if (ms_h, ms_w) != (height, width):
+        ms_up = cv2.resize(ms, (width, height), interpolation=cv2.INTER_CUBIC)
+        if ms_up.ndim == 2:
+            ms_up = ms_up[:, :, np.newaxis]
+    else:
+        ms_up = ms.astype(np.float32, copy=False)
+
+    num_pixels = height * width
+    ms_flat = ms_up.reshape(num_pixels, num_bands).astype(np.float32, copy=False)
+    pan_flat = pan.reshape(num_pixels).astype(np.float32, copy=False)
+
+    # Simulate low-resolution PAN via weighted average (GS Mode 1)
+    pan_sim = ms_flat @ weights.astype(np.float32, copy=False)
+
+    # Forward Gram-Schmidt orthogonalization on mean-centered components
+    gs = np.empty((num_pixels, num_bands + 1), dtype=np.float32)
+    phi = np.zeros((num_bands + 1, num_bands + 1), dtype=np.float32)
+
+    sim_mean = float(np.mean(pan_sim, dtype=np.float64))
+    gs[:, 0] = pan_sim - sim_mean
+    ms_means = np.mean(ms_flat, axis=0, dtype=np.float64).astype(np.float32)
+
+    for b in range(1, num_bands + 1):
+        gs[:, b] = ms_flat[:, b - 1] - ms_means[b - 1]
+        for j in range(b):
+            denom = float(np.dot(gs[:, j], gs[:, j]))
+            if denom > 0.0:
+                phi[b, j] = float(np.dot(gs[:, b], gs[:, j])) / denom
+                gs[:, b] -= phi[b, j] * gs[:, j]
+
+    # Substitute first component with histogram-matched high-resolution PAN
+    pan_mean = float(np.mean(pan_flat, dtype=np.float64))
+    pan_std = float(np.std(pan_flat, dtype=np.float64))
+    sim_std = float(np.std(gs[:, 0], dtype=np.float64))
+
+    if pan_std > 0.0:
+        gs[:, 0] = ((pan_flat - pan_mean) / pan_std) * sim_std
+    else:
+        gs[:, 0] = 0.0
+
+    # Inverse Gram-Schmidt transformation
+    sharpened_flat = np.empty((num_pixels, num_bands), dtype=np.float32)
+    for b in range(1, num_bands + 1):
+        band = gs[:, b] + ms_means[b - 1]
+        for j in range(b):
+            band += phi[b, j] * gs[:, j]
+        sharpened_flat[:, b - 1] = band
+
+    if clip_range is not None:
+        np.clip(sharpened_flat, clip_range[0], clip_range[1], out=sharpened_flat)
+
+    return sharpened_flat.reshape(height, width, num_bands)
