@@ -4,8 +4,9 @@ from shape import shape_tools
 from raster import indexes, pansharpening, normalize
 from imagery import stac
 
-import geopandas as gpd
 import os
+import gc
+import geopandas as gpd
 import numpy as np
 from pathlib import Path
 import argparse
@@ -46,6 +47,9 @@ def main(source, test=False):
         for idx, row in gdf.iterrows():
             print(f'\n {idx} - id: {row['id']} - processo: {row['processo']} \n')
 
+            # if row['id'] != 205964:
+            #     continue
+
             polygon = row['geometry'].envelope
 
             csv_metadata = {
@@ -70,255 +74,162 @@ def main(source, test=False):
 
             # print(headers)
 
-            gdf_list = []
             data_frame = gpd.GeoDataFrame(geometry=[polygon], crs=gdf.crs)
 
-            #calculate parameters for pansharpening algorithms
-            print(f'getting global imagery')
-            global_imagery, out_meta, _ = stac.getData(
+            # gets global imagery
+            print(f'getting global imagery...')
+            global_imagery, _, metadatas = stac.getData(
                     gdf=data_frame   , 
                     shapefile_name="global", 
                     source='cbers', 
                     timeframe=config.DATETIME, 
                     size=int(config.RESOLUTION // 4),
                     max_size=True, 
-                    assets=['BAND1', 'BAND2', 'BAND3'], 
+                    assets=['BAND3', 'BAND2', 'BAND1', 'BAND4'], 
                     verify=False, 
-                    aux_shape=None, 
+                    dec_read=1, 
                     getAll=False
                     )
             
-            min_max_values = normalize.winsorization_min_max(band=global_imagery, values=True)
-            global_imagery = normalize.winsorization_min_max(band=global_imagery, values=min_max_values)
+            print(f'getting PAN')
 
-            global_chw = np.moveaxis(global_imagery, -1, 0)
-            out_meta.update({
-                        "count": min(global_chw.shape),
-                        "height": global_chw.shape[1],
-                        "width": global_chw.shape[2],
+            target_date = str(metadatas['DATE'])
+            csv_metadata['DATA'] = target_date
 
-                    })
-            with rasterio.open("banda_test_global_normalized", "w", **out_meta) as band:
-                band.write (global_chw)
-
-
-            global_pan, pan_meta, _ = stac.getData(
+            global_pan, temp_pan_meta, _ = stac.getData(
                     gdf=data_frame, 
                     shapefile_name="global_pan", 
                     source='cbers', 
-                    timeframe=config.DATETIME, 
+                    timeframe=target_date, 
                     size=config.RESOLUTION, 
                     max_size=True,
                     assets=['BAND0'], 
                     verify=False, 
-                    aux_shape=None, 
+                    dec_read=1, 
                     getAll=False
                     )
 
+            # makes global pan 2D
+            global_pan = global_pan[:, :, 0,]
 
-            print(f'reshaping imagery')
-            # global_imagery = np.ascontiguousarray(global_imagery, dtype=np.float32)
-            # global_pan = np.ascontiguousarray(global_pan, dtype=np.float32)[:, :, 0,]
 
-            min_max_values_pan = normalize.winsorization_min_max(band=global_pan, values=True)
-            global_pan = normalize.winsorization_min_max(band=global_pan, values=min_max_values_pan)
+            print(f'pansharpeenning...')
+            
+            # pansharpening
+            fusion = 'gsa'
 
-            pan_chw = np.moveaxis(global_pan, -1, 0)
-            #pan_chw = global_pan
-            pan_meta.update({
-                        "count": 1,
-                        "height": pan_chw.shape[1],
-                        "width": pan_chw.shape[2],
+            global_fused, _ = pansharpening.gsa(pan=global_pan, ms=global_imagery)
 
-                    })
+            csv_metadata['PANSHARPENING'] = fusion
 
-            print(pan_chw.shape)
-            with rasterio.open("banda_test_global_PAN_normalized", "w", **pan_meta) as band:
-                band.write (pan_chw)
-            exit()
+            ndvi = indexes.ndvi(nir=global_fused[:,:, 3], red=global_fused[:,:, 0])
+            ndwi = indexes.ndwi(green=global_fused[:,:, 1], nir=global_fused[:,:, 3])
 
-            print(f'calculating global gsa params')
-            _, params = pansharpening.gsa(pan=global_pan, ms=global_imagery)
 
-            print(f'global params: {params}')
+            # normalize all
+            print(f'normalizing...')
 
-            for shape in shape_tools.divide(shape=data_frame, overlap=64, spatial_resolution=2):
+            global_fus_norm = normalize.winsorization_min_max(band=global_fused, values=False)
+            ndvi = (ndvi + 1) / 2
+            ndwi = (ndwi + 1) / 2
 
-                shape_gdf = gpd.GeoDataFrame(geometry=[shape], crs="EPSG:3857")
-                shape_gdf = shape_gdf.to_crs(data_frame.crs)
-                gdf_list.append(shape_gdf)
+            indexes_stack = np.stack((ndvi, ndwi))
+            indexes_stack = np.transpose(indexes_stack, (1, 2, 0))
 
+            # add ndvi and ndwi to global imagery
+            global_fus_norm = np.dstack([global_fus_norm, indexes_stack])         
+            
+            # save assets meetadata
+            cbers_assets = ['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']
+            csv_metadata['ASSETS'] = cbers_assets
+
+            # save metadata
+            g_f_n_meta = temp_pan_meta
+            g_f_n_meta.update({
+                'driver': 'GTiff',
+                'count': min(global_fus_norm.shape),
+                'height': global_fus_norm.shape[0],
+                'width': global_fus_norm.shape[1]
+            })
+
+
+            print(f'cleaning residual memory...')
+
+            # print(f'size of GLOBAL MS: {global_imagery.nbytes / (1024 ** 2):.2f} MB')
+            # print(f'size of GLOBAL PAN: {global_pan.nbytes / (1024 ** 2):.2f} MB')
+            # print(f'size of GLOBAL FUSED: {global_fused.nbytes / (1024 ** 2):.2f} MB')
+
+            # exit()
+
+            del global_imagery
+            del global_pan    
+            del global_fused
+            del metadatas
+            # del normalized
+            del temp_pan_meta
+            del ndvi
+            del ndwi
+            # del indexes_stack
+            collected = gc.collect()
+
+            print(f'')
+
+
+
+
+            # global_fus_norm = np.transpose(global_fus_norm, (2, 0, 1))
+            # with rasterio.open(save_dir + '/UNCLASSIFIED/' + 'TEST.tiff', "w", **g_f_n_meta) as dest:
+            #         dest.write(global_fus_norm)
+
+            # exit()
+   
+            #
+            #   OK ATE AQUI
+            #
+
+            # divide global
+
+            spatial_resolution = 2
+
+            gdf_area:float = data_frame.to_crs("ESRI:54009").area[0] / 1e6
+            target_area:float = ((config.RESOLUTION * spatial_resolution) / 1000 ) ** 2
+
+            print(f'gdf area: {gdf_area}')
+            print(f'target area: {target_area}')
+
+            if gdf_area > target_area:
+                print(f' dividing global imagery...')
+                tiles = shape_tools.divide(
+                    image=global_fus_norm,
+                    shape_file=data_frame,
+                    transform=g_f_n_meta['transform'],
+                    crs=data_frame.crs,
+                    tile_size=config.RESOLUTION,
+                    overlap=128,
+                    spatial_resolution=spatial_resolution
+                    )
+            else:
+                tiles = [global_fus_norm]
         
             # create directories
     
-            output_dir = Path(config.SOURCES.get(source)[1])
-            output_dir.mkdir(parents=True, exist_ok=True)
+            #output_dir = Path(config.SOURCES.get(source)[1])
+            #output_dir.mkdir(parents=True, exist_ok=True)
             
             idx=1
-            total_parts = len(gdf_list)
-            for part in gdf_list:
+            total_parts = len(tiles)
+            print(total_parts)
+            for part in tiles:
 
                 print(f'\n STARTING FOR {idx} OF {total_parts}\n')
 
                 csv_metadata['PARTE'] = f'{idx}/{total_parts}'
-
-                shapefile_name = f'{row['id']}'
-                print(f'name: {shapefile_name}')
-               
-                # if idx != 16:
-                #     idx += 1
-                #     continue
-
-                ## get RGB NIR cbers imagery
-                cbers_imagery, cbers_meta, _ = stac.getData(
-                    gdf=part   , 
-                    shapefile_name=shapefile_name, 
-                    source='cbers', 
-                    timeframe=config.DATETIME, 
-                    size=256,
-                    max_size=config.MAX_SIZE, 
-                    assets=['BAND1', 'BAND2', 'BAND3', 'BAND4'], 
-                    verify=False, 
-                    aux_shape=None, 
-                    getAll=False
-                    )
-
-
-                # exit()
-
-                cbers_pan, cbers_pan_meta, cbers_outmeta = stac.getData(
-                    gdf=part, 
-                    shapefile_name=shapefile_name + '_PAN', 
-                    source='cbers', 
-                    timeframe=config.DATETIME, 
-                    size=config.RESOLUTION, 
-                    max_size=config.MAX_SIZE,
-                    assets=['BAND0'], 
-                    verify=False, 
-                    aux_shape=None, 
-                    getAll=False
-                    )
-
-                print(f'CBERS PAN got')
-
-                csv_metadata['DATA'] = cbers_outmeta['DATE']
-                # csv_metadata['NOME'] = cbers_outmeta['NAME']
-                csv_metadata['TAMANHO'] = cbers_outmeta['SIZE']
-                print(f'CBERS IMAGERY GOT')
-
-
-
-
-                nir = cbers_imagery[:,:,3]
-
-                print('cauculating indexes...')
-                ndvi = indexes.ndvi(nir=nir, red=cbers_imagery[:,:,2])
-                ndwi = indexes.ndwi(green=cbers_imagery[:,:,1], nir=nir)
-
-                # remove nir from stack to not mess with pansharpenning
-                cbers_imagery = np.delete(cbers_imagery, 3, axis=2)
-
-               
-
-                fusion = 'gsa'
-                # cbers_imagery = np.transpose(cbers_imagery, (1,2,0))
-
                 
-                cbers_imagery = np.ascontiguousarray(cbers_imagery, dtype=np.float32)
-                pan_img = np.ascontiguousarray(cbers_pan, dtype=np.float32)[:, :, 0,]
-                
-                ratio = 4
-
-                # if (cbers_imagery.shape[1] * ratio) < pan_img.shape[1]:
-
-                #     diff = pan_img.shape[1] - ( cbers_imagery.shape[1] * ratio )
-                #     pan_img = pan_img[:-diff,:-diff]
-                
-                # print(f' PAN SHAPE: {pan_img.shape}')
-                # print(f' RGB SHAPE: {cbers_imagery.shape}')
-
-
-                # params = {'weights': list([-0.91362598,  2.87242526, -0.64374208, 67.68559085]), 
-                #         'mean_sim': np.float64(226.93916320800807), 
-                #         'std_sim': np.float64(89.05930569031224), 
-                #         'mean_pan': np.float32(226.93915), 
-                #         'std_pan': np.float32(95.71084), 
-                #         'g_i': list([0.91057864, 0.87403487, 1.05425853])}
-
-                # # NND Pansharpenning
-                print(f'\n starting {fusion} pansharpening\n')
-
-                # print(f'\nms = {cbers_imagery.shape} \n pan = {pan_img.shape} \n params = {params} \n')
-
-
-
-                if fusion == 'nnd':
-                    fused_image = pansharpening.nndiffuse(
-                        ms_img=cbers_imagery,
-                        pan_img=pan_img,
-                        ratio=ratio
-                        )
-                elif fusion == 'gsa':
-                    fused_image, _ = pansharpening.gsa(pan=pan_img, ms=cbers_imagery, param=params)
-                
-                print('image fused!')
-
-                #print(params)
-                # fused_image = np.transpose(fused_image, (2, 0, 1))
-                fused_image = np.ascontiguousarray(fused_image, dtype=np.float32)
-
-                cbers_assets = ['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']
-
-                csv_metadata['ASSETS'] = cbers_assets
-
-                print('separating fusioned bands...')
-                # BANDS
-                blue = fused_image[:,:,0]
-                green = fused_image[:,:,1]
-                red = fused_image[:,:,2]  
-                # interpolate nir and indexes to match fusioned
-                nir = cv2.resize(nir, blue.shape, interpolation=cv2.INTER_CUBIC)
-                ndvi = cv2.resize(ndvi, blue.shape, interpolation=cv2.INTER_CUBIC)
-                ndwi = cv2.resize(ndwi, blue.shape, interpolation=cv2.INTER_CUBIC)
-
-                print(f'red: {red}')
-                print(f'greeen: {green}')
-                print(f'blue: {blue}')
-
-                print(f'normalizing...')
-                normalized_red = normalize.winsorization_min_max(band=red)
-                normalized_green = normalize.winsorization_min_max(band=green)
-                normalized_blue = normalize.winsorization_min_max(band=blue)
-                normalized_nir = normalize.winsorization_min_max(band=nir)
-                normalized_ndvi = normalize.winsorization_min_max(band=ndvi)
-                normalized_ndwi = normalize.winsorization_min_max(band=ndwi)
-
-                print(f'normalized red: {normalized_red}')
-                print(f'greeen: {normalized_green}')
-                print(f'blue: {normalized_blue}')
-
-                print('stacking...')
-                fused_cbers = np.stack([
-                    normalized_red, 
-                    normalized_green, 
-                    normalized_blue, 
-                    normalized_nir, 
-                    normalized_ndvi, 
-                    normalized_ndwi
-                    ])
-
-                csv_metadata['PANSHARPENING'] = fusion
-                
-                fused_meta = cbers_pan_meta
-                fused_meta.update({
-                    "count": min(fused_cbers.shape),
-                    "height": fused_cbers.shape[0],
-                    "width": fused_cbers.shape[1],
-                    "dtype": np.float32,
-                    "nodata": -999
+                g_f_n_meta.update({
+                    "height": part.shape[0],
+                    "width": part.shape[1],
                 })
-    
-                
+                  
                 fused_name = f'{source}_{row['id']}_{csv_metadata['PROCESSO'].replace('/', '-')}_{str(csv_metadata['DATA'])}_{fusion}_normalized_{idx}.tiff'
                 csv_metadata['NOME'] = fused_name
 
@@ -333,24 +244,24 @@ def main(source, test=False):
 
                 print(f'\nsaving geotiff as {fused_name}\n')
                 # SAVE GEOTIFF FILE
-                with rasterio.open(save_dir + '/UNCLASSIFIED/' + fused_name, "w", **fused_meta) as dest:
-                    dest.write(normalized_red, 1)
-                    dest.set_band_description(1, 'red')
+                with rasterio.open(save_dir + '/UNCLASSIFIED/' + fused_name, "w", **g_f_n_meta) as dest:
+                    dest.write(part[:,:, 0], 1)
+                    dest.set_band_description(1, 'RED')
                     
-                    dest.write(normalized_green, 2)
-                    dest.set_band_description(2, 'green')
+                    dest.write(part[:,:, 1], 2)
+                    dest.set_band_description(2, 'GREEN')
 
-                    dest.write(normalized_blue, 3)
-                    dest.set_band_description(3, 'blue')
+                    dest.write(part[:,:, 2], 3)
+                    dest.set_band_description(3, 'BLUE')
 
-                    dest.write(normalized_nir, 4)
-                    dest.set_band_description(4, 'nir')
+                    dest.write(part[:,:, 3], 4)
+                    dest.set_band_description(4, 'NIR')
 
-                    dest.write(normalized_ndvi, 5)
-                    dest.set_band_description(5, 'ndvi')
+                    dest.write(part[:,:, 4], 5)
+                    dest.set_band_description(5, 'NDVI')
 
-                    dest.write(normalized_ndwi, 6)
-                    dest.set_band_description(6, 'ndwi')
+                    dest.write(part[:,:, 5], 6)
+                    dest.set_band_description(6, 'NDWI')
                 
                 exit()
                 idx += 1

@@ -1,8 +1,8 @@
 import numpy as np
 import cv2
-from type_aliases import SingleChannelFloat32NDArray
+from type_aliases import ImageHW
 
-def fmm(image:SingleChannelFloat32NDArray, grid:int=3, no_data=np.nan) -> np.array:
+def fmm(image:ImageHW, grid:int=3, no_data=np.nan) -> np.array:
     """OpenCV's Fast Marching Method (FMM) inpaint.
 
     seamlessly blend the points with their immediate surrounding 'grid' x 'grid' neighborhoods.

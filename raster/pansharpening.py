@@ -108,9 +108,9 @@ def gsa(
     
     Args:
         pan:   
-            pan imagery.
+            pan imagery in [H, W] format (no chanel).
         ms:
-            multispectral imagery.
+            multispectral imagery in [H, W, C] format (chanel last).
         param:
             paremeters of the regression, if provided they will be used, else them will be calculate.
     
@@ -124,7 +124,7 @@ def gsa(
     """
 
     if pan.ndim != 2: raise ValueError(f"Incorrect {pan.shape} PAN shape, must be (H, W).")
-    if ms.ndim != 3: raise ValueError(f"Incorrect {ms.shape} MS shape, must be (h, w, Bands).")
+    if ms.ndim != 3: raise ValueError(f"Incorrect {ms.shape} MS shape, must be (H, W , C).")
 
     H, W = pan.shape
     h, w, num_bands = ms.shape

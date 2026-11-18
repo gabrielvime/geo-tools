@@ -1,35 +1,56 @@
 ﻿NOME,ID,PROCESSO,DATA,FASE,SUBSTANCIA,UF,BIOMA,USO,PARTE,SATELITE,PANSHARPENING,ASSETS,TAMANHO
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_1.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,1/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_2.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,2/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_3.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,3/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_4.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,4/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_5.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,5/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_6.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,6/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_7.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,7/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_8.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,8/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_9.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,9/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_10.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,10/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_11.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,11/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_12.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,12/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_13.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,13/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_14.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,14/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_15.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,15/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_16.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,16/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_17.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,17/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_18.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,18/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_19.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,19/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_20.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,20/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_1.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,1/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_2.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,2/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_3.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,3/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_4.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,4/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_5.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,5/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_6.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,6/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_7.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,7/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_8.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,8/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_9.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,9/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_10.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,10/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_11.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,11/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_12.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,12/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_13.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,13/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
-cbers_131386_850255-2018_2026-06-30_gsa_normalized_14.tiff,131386,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,14/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,
+cbers_159649_850255-2018_2026-06-30_gsa_normalized_1.tiff,159649,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,1/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
+cbers_159649_850255-2018_2026-06-30_gsa_normalized_1.tiff,159649,850255/2018,2026-06-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,1/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
+cbers_159649_850255-2018_2026-05-30_gsa_normalized_1.tiff,159649,850255/2018,2026-05-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,1/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
+cbers_159649_850255-2018_2026-05-30_gsa_normalized_1.tiff,159649,850255/2018,2026-05-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,1/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
+cbers_159649_850255-2018_2026-05-30_gsa_normalized_1.tiff,159649,850255/2018,2026-05-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,1/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
+cbers_159649_850255-2018_2026-05-30_gsa_normalized_1.tiff,159649,850255/2018,2026-05-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,1/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
+cbers_159649_850255-2018_2026-05-30_gsa_normalized_1.tiff,159649,850255/2018,2026-05-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,1/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
+cbers_159649_850255-2018_2026-05-30_gsa_normalized_1.tiff,159649,850255/2018,2026-05-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,1/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
+cbers_159649_850255-2018_2026-05-30_gsa_normalized_1.tiff,159649,850255/2018,2026-05-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,1/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
+cbers_159649_850255-2018_2026-05-30_gsa_normalized_1.tiff,159649,850255/2018,2026-05-30,LAVRA GARIMPEIRA,CASSITERITA,PA,Amazônia,Industrial,1/32,cbers,gsa,"['red', 'green', 'blue', 'nir', 'ndvi', 'ndwi']",1024
+cbers_205964_851181-2023_2026-06-30_gsa_normalized_1.tiff,205964,851181/2023,2026-06-30,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1/1,cbers,gsa,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
+cbers]_205964_851181-2023_2026-06-30_gsa_normalized_1.tiff,205964,851181/2023,2026-06-30,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1/1,cbers],gsa,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
+cbers]_205964_851181-2023_2026-06-30_gsa_normalized_1.tiff,205964,851181/2023,2026-06-30,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1/1,cbers],gsa,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",

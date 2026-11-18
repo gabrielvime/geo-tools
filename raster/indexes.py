@@ -2,13 +2,25 @@ import numpy as np
 
 # Normalized Difference Vegetation Index
 def ndvi(nir:np.float32, red:np.float32) -> np.float32:
+    num = nir - red
     denom = nir + red
-    return np.where(denom == 0, 0, (nir - red) / denom)
+    return np.divide(
+        num,
+        denom,
+        out=np.zeros_like(num, dtype=np.float32),
+        where=(denom != 0)
+        )
 
 # Normalized Difference Water Indexs
 def ndwi(green:np.float32, nir:np.float32) -> np.float32:
-    denom = green + nir
-    return np.where(denom == 0, 0, (green - nir) / denom)
+    num = nir - green
+    denom = nir + green
+    return np.divide(
+        num,
+        denom,
+        out=np.zeros_like(num, dtype=np.float32),
+        where=(denom != 0)
+        )
 
 
 # Modified Normalized Difference Water Index 

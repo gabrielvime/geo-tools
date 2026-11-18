@@ -5,8 +5,11 @@ from rasterio.features import rasterize
 import numpy as np
 from rasterio.warp import transform_bounds
 from shapely.geometry import box
+from shapely.ops import unary_union
+from rasterio.windows import Window
 
 import config
+from type_aliases import ImageHW, ImageCHW, ImageHWC, ImageT
 
 '''
 ShapeFile functions
@@ -131,26 +134,90 @@ def window(shape, src, max_size=True, size=config.RESOLUTION, min_max=False, crs
 
     return window
 
-def divide(shape:np.array, crs:str="EPSG:3857", overlap:float=config.RESOLUTION * 0.05, spatial_resolution:int=1) -> list[np.array]:
-    shape = shape.to_crs(crs)
-    unified_shape = shape.unary_union
-    minx, miny, maxx, maxy = shape.total_bounds
-    
-    step = (config.RESOLUTION  - overlap) * spatial_resolution
+def divide(
+    image : ImageT | None, 
+    shape_file : gpd.GeoDataFrame,
+    transform : rasterio.Affine,
+    crs : str | rasterio.crs.CRS="EPSG:3857", 
+    tile_size : int = config.RESOLUTION,
+    overlap : int = int(config.RESOLUTION * 0.05), 
+    spatial_resolution : float = 1
+) -> list[ImageT] | list[gpd.GeoDataFrame]:
+    """Divides an image or a GeoDataFrame into spatial tiles intersecting a target area.
 
-    if step < 0:
-        raise ValueError("O overlap não pode ser maior ou igual ao tamanho do quadrado!")
+    Operates in two distinct modes:
+    1. Image mode: Slices a 3D NumPy array (CHW or HWC) into sub-tiles intersecting
+       the shapefile geometries, preserving the original channel layout.
+    2. Vector mode: Generates a grid of GeoDataFrame bounding boxes intersecting the
+       shapefile geometries when no image is provided.
 
-    x_coords = np.arange(minx, maxx, step)
-    y_coords = np.arange(miny, maxy, step)
+    Args:
+        image: Input 3D array formatted as CHW or HWC, or None for vector mode.
+        shape_file: GeoDataFrame defining the target region of interest.
+        transform: Affine transformation matrix mapping pixel coordinates to CRS.
+        crs: Coordinate Reference System for spatial alignment. Defaults to "EPSG:3857".
+        tile_size: Width and height of the output tiles in pixels. Defaults to config.RESOLUTION.
+        overlap: Overlap between adjacent tiles in pixels. Defaults to 5% of config.RESOLUTION.
+        spatial_resolution: Ground sampling distance (meters per pixel). Defaults to 1.0.
 
-    grids_validos = []
+    Returns:
+        A list of sliced NumPy arrays matching the input layout (`ImageT`) if `image`
+        is provided, or a list of single-row GeoDataFrames if `image` is None.
+
+    Raises:
+        ValueError: If `overlap` >= `tile_size`, or if `image` is not a 3D array.
+    """
+    if overlap >= tile_size:
+        raise ValueError("Overlap must be strictly less than tile_size.")
+
+    if shape_file.crs != crs:
+        shape_file = shape_file.to_crs(crs)
+
+    target_geometry = unary_union(shape_file.geometry)
+
+    # Mode 1: Image Slicing
+    if image is not None:
+        if image.ndim != 3:
+            raise ValueError(f"Expected 3D image (CHW or HWC), got shape {image.shape}.")
+
+        # Infer layout: assume channels-first if axis 0 is strictly smaller than spatial axes
+        is_chw = image.shape[0] < image.shape[1] and image.shape[0] < image.shape[2]
+        work_image = image if is_chw else np.transpose(image, (2, 0, 1))
+
+        _, height, width = work_image.shape
+        step = tile_size - overlap
+        image_tiles: list[ImageT] = []
+
+        for row in range(0, height - tile_size + 1, step):
+            for col in range(0, width - tile_size + 1, step):
+                window = Window(col_off=col, row_off=row, width=tile_size, height=tile_size)
+                bounds = rasterio.windows.bounds(window, transform)
+                tile_bbox = box(*bounds)
+
+                if target_geometry.intersects(tile_bbox):
+                    print(f'+1 intersect')
+                    tile_chw = work_image[:, row : row + tile_size, col : col + tile_size]
+                    out_tile = tile_chw if is_chw else np.transpose(tile_chw, (1, 2, 0))
+                    image_tiles.append(out_tile)  # type: ignore[arg-type]
+
+        return image_tiles
+
+    # Mode 2: Vector Grid Generation
+    minx, miny, maxx, maxy = shape_file.total_bounds
+    spatial_step = (tile_size - overlap) * spatial_resolution
+    tile_ground_size = tile_size * spatial_resolution
+
+    x_coords = np.arange(minx, maxx, spatial_step)
+    y_coords = np.arange(miny, maxy, spatial_step)
+
+    vector_tiles: list[gpd.GeoDataFrame] = []
 
     for x in x_coords:
         for y in y_coords:
-            quadrado = box(x, y, x + (config.RESOLUTION * spatial_resolution), y + (config.RESOLUTION * spatial_resolution))
+            tile_bbox = box(x, y, x + tile_ground_size, y + tile_ground_size)
 
-            if unified_shape.intersects(quadrado):
-                grids_validos.append(quadrado)
+            if target_geometry.intersects(tile_bbox):
+                tile_gdf = gpd.GeoDataFrame({"geometry": [tile_bbox]}, crs=crs)
+                vector_tiles.append(tile_gdf)
 
-    return grids_validos
+    return vector_tiles

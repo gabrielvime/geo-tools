@@ -1,9 +1,12 @@
 from pathlib import Path
 import rasterio
 from rasterio.features import rasterize
+from rasterio.enums import Resampling
 import numpy as np
 from shapely.geometry import box, shape
 import pandas as pd
+import time
+import requests
 
 import shape.shape_tools, config
 from raster import interpolate, validate, array_tools
@@ -18,7 +21,8 @@ def getData(
         size=config.RESOLUTION, 
         max_size=config.MAX_SIZE,
         assets=[], 
-        verify=True, aux_shape=None, 
+        verify=True, 
+        dec_read=1, 
         getAll=True
     ):
 
@@ -29,13 +33,26 @@ def getData(
 
     print(f'connecting to source...')
 
-    if source =='cbers':
-        items = config.cbers(bbox=bbox, datetime=timeframe)
-    elif source == 'sentinel2':
-        items = config.sentinel2(bbox=bbox, datetime=timeframe)
-    elif source == 'landsat':
-        items = config.landsdat(bbox=bbox, datetime=timeframe)
-    
+
+    for attemp in range(5):
+        try:
+            if source =='cbers':
+                items = config.cbers(bbox=bbox, datetime=timeframe)
+            elif source == 'sentinel2':
+                items = config.sentinel2(bbox=bbox, datetime=timeframe)
+            elif source == 'landsat':
+                items = config.landsdat(bbox=bbox, datetime=timeframe)
+        except Exception as e:
+            print(f'Server error (attemp {attemp + 1}/5): {e}')
+
+            if attemp < 10:
+                for i in range(60, 0, -1):
+                    print(f'Waiting {i} seconds to try again...', end='\r', flush=True)
+                    time.sleep(1)
+                    continue
+            else:
+                raise
+        
     if not items:
         print(f'no scenes obtained from given parameters')
         return
@@ -79,6 +96,11 @@ def getData(
 
                 band_href = item.assets[band_key].href
 
+                response = requests.head(band_href, allow_redirects=True, timeout=10)
+                size = int(response.headers.get('Content-Length', 0))
+
+                
+
                 with rasterio.open(band_href) as scene_data:
                     
                     if window is None:
@@ -95,21 +117,42 @@ def getData(
                     # get band data
                     # generally comes as np.ndarray(nd.dtype(np.int16))
 
-                    getting_band_print = f'getting band {band_key}... '
-                    print(f'\r{getting_band_print}\033[K', end="", flush=True)
-                    band_array = scene_data.read(1, window=window, boundless=True, fill_value=no_data_fill)
+                    print_getting_band = f'getting band {band_key}... '
+                    print(f'\r{print_getting_band} (Size to download: {size / (1024**2):.2f} MB)\033[K', end="", flush=True)
 
-                    band_array = band_array.astype(np.float32)
+                    if dec_read > 1:
+                        dec_height = int(window.height // dec_read) 
+                        dec_width = int(window.width // dec_read)
+
+                        band_array = scene_data.read(
+                            1, 
+                            window=window, 
+                            boundless=True, 
+                            fill_value=no_data_fill, 
+                            out_shape=(dec_height, dec_width),
+                            resampling=Resampling.bilinear
+                            ).astype(np.float32)
+                    else:
+
+
+                        band_array = scene_data.read(
+                            1, 
+                            window=window, 
+                            boundless=True, 
+                            fill_value=no_data_fill
+                            ).astype(np.float32)
+
+                    #band_array = band_array.astype(np.float32)
 
                     # crops the imagery if dont want max_size
                     # max_size is intended for calculate global params
                     # or simply get thee whole imagery
                     if not max_size:
 
-                        print(f'\r{getting_band_print} (croping image)\033[K', end="", flush=True)
+                        print(f'\r{print_getting_band} (croping image)\033[K', end="", flush=True)
                         band_array = np.ascontiguousarray(array_tools.center_crop(band_array, size, size))
                     
-                    print(f'\r{getting_band_print} (verifing data integrity)\033[K', end="", flush=True) 
+                    print(f'\r{print_getting_band} (verifing data integrity)\033[K', end="", flush=True) 
 
                     # calculates the no_data values
                     compromissed_integrity = validate.dataIntegrity(band_array, no_data=no_data_fill)
@@ -120,16 +163,17 @@ def getData(
                     # if is to getAll, then just save corrupted imagery
                     if (compromissed_integrity > 0.0) and not getAll:
 
-                        if compromissed_integrity < 0.01:
-                            print(f'\r{getting_band_print} (interpolating remaing invalid data)\033[K', end="", flush=True)
+                        if compromissed_integrity < 0.005:
+                            print(f'\r{print_getting_band} (interpolating remaing invalid data)\033[K', end="", flush=True)
                             band_array = interpolate.fmm(image=band_array, grid=5, no_data=no_data_fill)
 
                         else:
                             print(f'\nscene integrity compromissed in {compromissed_integrity}...')
-                            print(f'skipping...')
-                            break          
+                            print(f'skipping...\n')
+
+                            raise ValueError(f'Corrupted data.')          
                         
-                    print(f"\r{getting_band_print} (DONE)\033[K")
+                    print(f"\r{print_getting_band} (DONE)\033[K")
 
                     stacked_bands.append(band_array)
             
@@ -170,29 +214,17 @@ def getData(
             # draw polygon
             if config.DRAW_POLYGON:
                 print(f'drawing polygon...')
-                
-                if aux_shape is None:
-                    image = shape.shape_tools.draw(
-                        image, 
-                        shape=gdf, 
-                        transform=transform,
-                        crs=gdf.crs
-                        )
-                    
-                else:
-                    image = shape.shape_tools.draw(
-                        image, 
-                        shape=aux_shape, 
-                        transform=transform,
-                        crs=gdf.crs
-                        )    
+            
+                image = shape.shape_tools.draw(
+                    image, 
+                    shape=gdf, 
+                    transform=transform,
+                    crs=gdf.crs
+                    )
+  
                 
             # file saving
             print(f'saving file...')
-            print(item.datetime)
-
-
-
             return (image, out_meta, metadata)
 
             success = True
@@ -204,7 +236,7 @@ def getData(
         
                 
         except Exception as e:
-            print(f"failed in {item.id}: {e}")
+            print(f"failed in {item.id}: {e}\n")
             continue
 
     if not success:
