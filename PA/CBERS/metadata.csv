@@ -40,6 +40,32 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
 ,,,,,,,,,,,,,
 ,,,,,,,,,,,,,
 ,,,,,,,,,,,,,
@@ -58,29 +84,6 @@
 ,,,,,,,,,,,,,
 ,,,,,,,,,,,,,
 ,,,
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_1.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_2.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,2-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_3.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,3-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,4-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_117202_851218-2017_2026-08-16_gram-schmidt_normalized_1.tiff,117202,851218/2017,2026-08-16,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1-1,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_160703_851160-2021_2025-09-19_gram-schmidt_normalized_1.tiff,160703,851160/2021,2025-09-19,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1-1,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_1.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_2.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,2-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_3.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,3-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,4-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_117202_851218-2017_2026-08-16_gram-schmidt_normalized_1.tiff,117202,851218/2017,2026-08-16,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1-1,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_160703_851160-2021_2025-09-19_gram-schmidt_normalized_1.tiff,160703,851160/2021,2025-09-19,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1-1,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_147069_851027-2020_2026-06-15_gram-schmidt_normalized_1.tiff,147069,851027/2020,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1-1,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_206738_851179-2023_2026-06-29_gram-schmidt_normalized_1.tiff,206738,851179/2023,2026-06-29,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1-1,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_1-4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_2-4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,2-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_3-4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,3-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_4-4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,4-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_1-4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_2-4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,2-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_3-4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,3-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_4-4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,4-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_1-4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,1-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_2-4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,2-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_3-4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,3-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
-cbers_12678_850922-2014_2026-06-15_gram-schmidt_normalized_4-4.tiff,12678,850922/2014,2026-06-15,LAVRA GARIMPEIRA,MINÉRIO DE OURO,PA,Amazônia,Industrial,4-4,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
+cbers_74895_855218-1995_2026-08-16_gram-schmidt_normalized_1-1.tiff,74895,855218/1995,2026-08-16,LAVRA GARIMPEIRA,OURO,PA,Amazônia,Demais substâncias,1-1,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
+cbers_74895_855218-1995_2026-08-16_gram-schmidt_normalized_1-1.tiff,74895,855218/1995,2026-08-16,LAVRA GARIMPEIRA,OURO,PA,Amazônia,Demais substâncias,1-1,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",
+cbers_74895_855218-1995_2026-08-16_gram-schmidt_normalized_0-1.tiff,74895,855218/1995,2026-08-16,LAVRA GARIMPEIRA,OURO,PA,Amazônia,Demais substâncias,0-1,cbers,gram-schmidt,"['RED', 'GREEN', 'BLUE', 'NIR', 'NDVI', 'NDWI']",

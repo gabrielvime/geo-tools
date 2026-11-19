@@ -1,4 +1,4 @@
-from typing import NewType, TypeVar
+from typing import NewType, TypeVar, TypeAlias
 import numpy as np
 
 # BASE TYPES
@@ -10,3 +10,4 @@ ImageHW = NewType("ImageHW", Float32Array2D)
 ImageCHW = NewType("ImageCHW", Float32Array3D)  # Rasterio / PyTorch
 ImageHWC = NewType("ImageHWC", Float32Array3D)  #  Matplotlib / OpenCV
 ImageT = TypeVar("ImageT", ImageCHW, ImageHWC)
+GSParams: TypeAlias = tuple[ImageT, float, ImageT, ImageT, float, float, float]

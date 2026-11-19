@@ -60,8 +60,7 @@ def divide(
         spatial_resolution: Ground sampling distance (meters per pixel). Defaults to 1.0.
 
     Returns:
-        A list of sliced NumPy arrays matching the input layout (`ImageT`) if `image`
-        is provided, or a list of single-row GeoDataFrames if `image` is None.
+        A list of sliced NumPy arrays matching the input layout (`ImageT`).
 
     Raises:
         ValueError: If `overlap` >= `tile_size`, or if `image` is not a 3D array.

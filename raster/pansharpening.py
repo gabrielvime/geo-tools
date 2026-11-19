@@ -2,7 +2,7 @@ import numpy as np
 from scipy.ndimage import zoom
 import cv2
 
-from type_aliases import ImageHW, ImageCHW, ImageHWC, ImageT
+from type_aliases import ImageHW, ImageCHW, ImageHWC, ImageT,GSParams
 
 def nndiffuse(ms_img, pan_img, ratio, sigma_intensity=15.0, sigma_spatial=None):
     """
@@ -216,7 +216,8 @@ def gram_schmidt(
     ms: ImageHWC,
     weights: ImageT | None = None,
     clip_range: tuple[float, float] | None = None,
-) -> ImageHWC:
+    params: GSParams | bool = False,
+) -> ImageHWC | GSParams:
     """Perform classical Gram-Schmidt (GS) pan-sharpening.
 
     Simulates a low-resolution panchromatic band from the multispectral bands,
@@ -228,27 +229,56 @@ def gram_schmidt(
         pan: High-resolution panchromatic image with shape (H, W).
         ms: Low-resolution multispectral image with shape (h, w, bands).
         weights: Optional spectral weights of shape (bands,) to simulate the
-            low-resolution PAN. Defaults to equal weights (1 / bands).
+            low-resolution PAN. Defaults to equal weights (1 / bands). Ignored
+            when `params` is a pre-computed tuple.
         clip_range: Optional (min, max) tuple to clip output values.
+        params: Controls parameter calculation and reuse across scenes:
+            - False: Computes statistics on the fly and returns the fused image.
+            - True: Computes and returns only the statistical parameter tuple.
+            - tuple: Uses pre-computed parameters to fuse the image and returns
+              the fused image.
 
     Returns:
-        Pan-sharpened multispectral image with shape (H, W, bands) and dtype float32.
+        Pan-sharpened multispectral image with shape (H, W, bands) and dtype
+        float32, or a tuple of pre-computed GS parameters when `params=True`.
 
     Raises:
-        ValueError: If input array dimensions or weight shapes are invalid.
+        ValueError: If array dimensions, weight shapes, or `params` are invalid.
     """
     if pan.ndim != 2:
         raise ValueError(f"Expected 2D PAN array (H, W), got shape {pan.shape}.")
     if ms.ndim != 3:
         raise ValueError(f"Expected 3D MS array (h, w, bands), got shape {ms.shape}.")
 
+    if isinstance(params, bool):
+        compute_params = True
+        return_params_only = params
+    elif isinstance(params, tuple):
+        if len(params) != 7:
+            raise ValueError(f"Expected 7 elements in `params`, got {len(params)}.")
+        compute_params = False
+        return_params_only = False
+    else:
+        raise ValueError("`params` must be a bool or a tuple of pre-computed GS parameters.")
+
     height, width = pan.shape
     ms_h, ms_w, num_bands = ms.shape
 
-    if weights is None:
-        weights = np.full(num_bands, 1.0 / num_bands, dtype=np.float32)
-    elif weights.shape != (num_bands,):
-        raise ValueError(f"Expected weights of shape ({num_bands},), got {weights.shape}.")
+    if compute_params:
+        if weights is None:
+            weights = np.full(num_bands, 1.0 / num_bands, dtype=np.float32)
+        elif weights.shape != (num_bands,):
+            raise ValueError(f"Expected weights of shape ({num_bands},), got {weights.shape}.")
+        else:
+            weights = weights.astype(np.float32, copy=False)
+    else:
+        weights, sim_mean, ms_means, phi, pan_mean, pan_std, sim_std = params
+        if (
+            weights.shape != (num_bands,)
+            or ms_means.shape != (num_bands,)
+            or phi.shape != (num_bands + 1, num_bands + 1)
+        ):
+            raise ValueError(f"Pre-computed `params` do not match MS band count ({num_bands}).")
 
     if (ms_h, ms_w) != (height, width):
         ms_up = cv2.resize(ms, (width, height), interpolation=cv2.INTER_CUBIC)
@@ -262,29 +292,39 @@ def gram_schmidt(
     pan_flat = pan.reshape(num_pixels).astype(np.float32, copy=False)
 
     # Simulate low-resolution PAN via weighted average (GS Mode 1)
-    pan_sim = ms_flat @ weights.astype(np.float32, copy=False)
+    pan_sim = ms_flat @ weights
 
     # Forward Gram-Schmidt orthogonalization on mean-centered components
     gs = np.empty((num_pixels, num_bands + 1), dtype=np.float32)
-    phi = np.zeros((num_bands + 1, num_bands + 1), dtype=np.float32)
 
-    sim_mean = float(np.mean(pan_sim, dtype=np.float64))
-    gs[:, 0] = pan_sim - sim_mean
-    ms_means = np.mean(ms_flat, axis=0, dtype=np.float64).astype(np.float32)
+    if compute_params:
+        phi = np.zeros((num_bands + 1, num_bands + 1), dtype=np.float32)
+        sim_mean = float(np.mean(pan_sim, dtype=np.float64))
+        ms_means = np.mean(ms_flat, axis=0, dtype=np.float64).astype(np.float32)
 
-    for b in range(1, num_bands + 1):
-        gs[:, b] = ms_flat[:, b - 1] - ms_means[b - 1]
-        for j in range(b):
-            denom = float(np.dot(gs[:, j], gs[:, j]))
-            if denom > 0.0:
-                phi[b, j] = float(np.dot(gs[:, b], gs[:, j])) / denom
+        gs[:, 0] = pan_sim - sim_mean
+        for b in range(1, num_bands + 1):
+            gs[:, b] = ms_flat[:, b - 1] - ms_means[b - 1]
+            for j in range(b):
+                denom = float(np.dot(gs[:, j], gs[:, j]))
+                if denom > 0.0:
+                    phi[b, j] = float(np.dot(gs[:, b], gs[:, j])) / denom
+                    gs[:, b] -= phi[b, j] * gs[:, j]
+
+        pan_mean = float(np.mean(pan_flat, dtype=np.float64))
+        pan_std = float(np.std(pan_flat, dtype=np.float64))
+        sim_std = float(np.std(gs[:, 0], dtype=np.float64))
+
+        if return_params_only:
+            return (weights, sim_mean, ms_means, phi, pan_mean, pan_std, sim_std)
+    else:
+        gs[:, 0] = pan_sim - sim_mean
+        for b in range(1, num_bands + 1):
+            gs[:, b] = ms_flat[:, b - 1] - ms_means[b - 1]
+            for j in range(b):
                 gs[:, b] -= phi[b, j] * gs[:, j]
 
     # Substitute first component with histogram-matched high-resolution PAN
-    pan_mean = float(np.mean(pan_flat, dtype=np.float64))
-    pan_std = float(np.std(pan_flat, dtype=np.float64))
-    sim_std = float(np.std(gs[:, 0], dtype=np.float64))
-
     if pan_std > 0.0:
         gs[:, 0] = ((pan_flat - pan_mean) / pan_std) * sim_std
     else:
@@ -302,3 +342,33 @@ def gram_schmidt(
         np.clip(sharpened_flat, clip_range[0], clip_range[1], out=sharpened_flat)
 
     return sharpened_flat.reshape(height, width, num_bands)
+
+from pathlib import Path
+import numpy as np
+
+
+def save_gs_params(filepath: str | Path, params: GSParams) -> None:
+    weights, sim_mean, ms_means, phi, pan_mean, pan_std, sim_std = params
+    np.savez(
+        filepath,
+        weights=weights,
+        sim_mean=np.array(sim_mean, dtype=np.float64),
+        ms_means=ms_means,
+        phi=phi,
+        pan_mean=np.array(pan_mean, dtype=np.float64),
+        pan_std=np.array(pan_std, dtype=np.float64),
+        sim_std=np.array(sim_std, dtype=np.float64),
+    )
+
+
+def load_gs_params(filepath: str | Path) -> GSParams:
+    with np.load(filepath) as data:
+        return (
+            data["weights"].astype(np.float32),
+            float(data["sim_mean"]),
+            data["ms_means"].astype(np.float32),
+            data["phi"].astype(np.float32),
+            float(data["pan_mean"]),
+            float(data["pan_std"]),
+            float(data["sim_std"]),
+        )
